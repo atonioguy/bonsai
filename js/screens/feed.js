@@ -3,7 +3,7 @@ import { mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed
 import { h, enso } from '../ui.js';
 import { currentBook, percent } from '../books.js';
 
-const STALE = 30 * 60_000; // refetch the feed when the cached copy is older than this
+const STALE = 10 * 60_000; // refetch the feed when the cached copy is older than this
 
 export async function render(main, app) {
   const s = app.settings;
@@ -69,9 +69,16 @@ export async function render(main, app) {
       const name = app.topic === 'all' ? '' : ' in ' + app.topicName(app.topic);
       return h('p', { class: 'feed-end meta', text: 'No articles' + name + ' yet.' });
     }
+    // While the feed server is still doing its first pass, say how far along it is.
+    const expected = app.config.sources.filter((x) => x.feed).length;
+    const loaded = (cache.status || []).length;
+    const filling = expected && loaded < expected
+      ? h('p', { class: 'meta', text: `${loaded} of ${expected} sources loaded. The feed server adds one about every 5 minutes.` })
+      : null;
     return h('div', { class: 'feed-end' },
       h('p', { class: 'meta', role: 'status' },
         loading ? 'Updating…' : 'You’re up to date · updated ' + relTime(cache.fetchedAt || cache.updatedAt)),
+      filling,
       h('button', { type: 'button', class: 'btn-text', disabled: loading, onclick: () => load(true) }, 'Refresh'));
   }
 

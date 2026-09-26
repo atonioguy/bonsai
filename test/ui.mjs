@@ -157,9 +157,8 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
     await db.put('saved', e.id, e);
   });
 
-  // 4. feed with data
+  // 4. feed with data (one navigation: a visible throwback is marked seen, so a second load wouldn't show it)
   await page.goto(BASE + '#/');
-  await page.reload();
   await page.waitForSelector('.entry');
   check(await page.$('.book-card'), 'book card shown');
   check(await page.$('.throwback'), 'throwback shown');
@@ -209,6 +208,27 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.waitForSelector('.saved-item');
   check((await page.$$('.saved-item')).length === 3, 'three saved entries');
   await shot('10-saved');
+
+  // 8. dark theme (Settings → Appearance)
+  await page.goto(BASE + '#/settings');
+  await page.selectOption('#theme', 'dark');
+  check((await page.getAttribute('html', 'data-theme')) === 'dark', 'theme switches to dark');
+  await shot('11-dark-settings');
+  await page.goto(BASE + '#/');
+  await page.reload();
+  await page.waitForSelector('.entry');
+  check((await page.getAttribute('html', 'data-theme')) === 'dark', 'dark theme survives reload');
+  await shot('12-dark-feed');
+  await page.click('.entry-title a');
+  await page.waitForSelector('.article-title');
+  await shot('13-dark-article');
+  await page.goto(BASE + '#/saved');
+  await page.waitForSelector('.saved-item');
+  await shot('14-dark-saved');
+  await page.goto(BASE + '#/library');
+  await page.waitForSelector('.row-title');
+  await shot('15-dark-library');
+  await page.evaluate(() => localStorage.setItem('bonsai-theme', 'system'));
 
   check(errors.length === 0, `console errors @${w}: ${errors.join(' | ')}`);
   await ctx.close();

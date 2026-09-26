@@ -76,7 +76,7 @@ export async function render(main, app) {
   const groups = app.config.topics.map((t) => {
     const rows = app.config.sources.filter((x) => x.topic === t.id).map((src) => {
       const st = status.get(src.id);
-      const note = !src.feed ? 'No feed link yet' : st && !st.ok ? 'Not loading' : '';
+      const note = !src.feed ? 'No feed link yet' : !feed ? '' : !st ? 'Not loaded yet' : !st.ok ? 'Not loading' + (st.error ? ' (' + st.error + ')' : '') : '';
       const sw = h('input', { type: 'checkbox', role: 'switch', class: 'switch', id: 'src-' + src.id, checked: !muted.has(src.id), disabled: !src.feed });
       sw.addEventListener('change', async () => {
         if (sw.checked) muted.delete(src.id); else muted.add(src.id);
@@ -85,7 +85,7 @@ export async function render(main, app) {
       return h('li', { class: 'row' },
         h('label', { class: 'row-main', for: 'src-' + src.id },
           h('span', { text: src.name }),
-          note ? h('span', { class: 'meta' + (note === 'Not loading' ? ' warn' : ''), text: note }) : null),
+          note ? h('span', { class: 'meta' + (note.startsWith('Not loading') ? ' warn' : ''), text: note }) : null),
         sw);
     });
     return h('div', { class: 'topic-group' },

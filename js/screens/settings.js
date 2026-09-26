@@ -1,6 +1,6 @@
 import * as db from '../db.js';
 import { h, toast } from '../ui.js';
-import { VERSION } from '../app.js';
+import { VERSION, themeChoice, setTheme } from '../app.js';
 
 export async function render(main, app) {
   const s = app.settings;
@@ -36,6 +36,14 @@ export async function render(main, app) {
     field('sq-key', 'Key', sqKey, 'The same AQ_KEY Side Quest uses. It stays on this device.')),
   h('div', {}, h('button', { type: 'submit', class: 'btn btn-primary' }, 'Save')));
 
+  // ---------- appearance (applies at once, stored on this device) ----------
+  const theme = h('select', { class: 'input', id: 'theme' },
+    [['system', 'Match phone'], ['light', 'Light'], ['dark', 'Dark']].map(([v, label]) => h('option', { value: v, selected: themeChoice() === v }, label)));
+  theme.addEventListener('change', () => setTheme(theme.value));
+  const appearance = h('section', { class: 'fieldset section', 'aria-labelledby': 'set-look' },
+    h('h2', { class: 'section-title', id: 'set-look', text: 'Appearance' }),
+    field('theme', 'Theme', theme));
+
   // ---------- backup ----------
   const importInput = h('input', { class: 'file-input', id: 'import', type: 'file', accept: 'application/json,.json' });
   importInput.addEventListener('change', async () => {
@@ -69,7 +77,8 @@ export async function render(main, app) {
 
   main.append(
     h('h1', { class: 'screen-title', text: 'Settings' }),
-    form,
+    appearance,
+    h('div', { class: 'section' }, form),
     backup,
     h('p', { class: 'meta section', text: 'Bonsai ' + VERSION }));
 }

@@ -150,10 +150,10 @@ takeaways.
 5. ✅ Saved quotes and throwbacks: select to save, resurfacing schedule.
 6. ✅ Side Quest bridge: a finished session writes a TickTick focus record.
 7. ✅ Saved screen: the tree by topic and the weekly recap.
+8. ✅ Dark mode (v0.2): Settings → Appearance (Match phone / Light / Dark).
 
 Next:
 - Connections between new items and saved quotes.
-- Dark mode for night reading.
 - A cross-device backup of saved quotes (right now: Export/Import in Settings).
 - An optional "You're caught up" daily stopping point.
 

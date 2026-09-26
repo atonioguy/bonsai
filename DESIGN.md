@@ -131,6 +131,27 @@ Nothing else has a shadow.
 | `--warning` | `#85550F` | Warning text |
 | `--danger` | `#A23B2A` | Destructive actions, errors |
 
+**Dark theme** (`:root[data-theme="dark"]` in tokens.css): warm charcoal with
+a light sage accent. It uses the same token names, so components never branch on
+the theme. Settings → Appearance offers Match phone, Light or Dark. The choice
+is stored per device and applied before first paint by the inline script in
+`index.html`.
+
+| Token | Dark hex | Contrast on `--bg` |
+|---|---|---|
+| `--bg` | `#1D1A17` | |
+| `--surface` | `#25211D` | |
+| `--surface-warm` | `#342D26` | |
+| `--surface-cool` | `#262C23` | |
+| `--text` | `#ECE5D8` | 13.8:1 |
+| `--text-2` | `#B2A796` | 7.3:1 |
+| `--accent` | `#A7BA8C` | 8.3:1 (dark `--accent-ink` on it: 8.3:1) |
+| `--line` / `--line-strong` | `#38322B` / `#7C7061` | line-strong 3.6:1 |
+| `--success` / `--warning` / `--danger` | `#A7C48F` / `#E2B46E` / `#EE9480` | ≥ 7.5:1 |
+
+Dark illustration colors: sage `#6F8159`, clay `#A8836B`, clay-dark `#8C6B55`,
+bark `#9A8069`, beige `#4A4239`. Any new color token needs a dark value too.
+
 Illustration-only colors (never for text or UI state): `--sage` `#A3B18A`,
 `--clay` `#CFAE96`, `--clay-dark` `#B8927A`, `--bark` `#6E5A47`, `--beige`
 `#D8C6AE`.

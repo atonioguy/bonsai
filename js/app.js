@@ -3,7 +3,7 @@ import * as db from './db.js';
 import { h, icon, treeMark } from './ui.js';
 import { retryPending } from './sidequest.js';
 
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';
 
 const SCREENS = {
   feed: () => import('./screens/feed.js'),
@@ -40,6 +40,22 @@ export const app = {
   async reloadSettings() { this.settings = await db.settings(); return this.settings; },
 };
 
+// ---------- theme ----------
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+export function themeChoice() {
+  try { return localStorage.getItem('bonsai-theme') || 'system'; } catch { return 'system'; }
+}
+export function setTheme(choice) {
+  try { localStorage.setItem('bonsai-theme', choice); } catch { /* private mode: applies for this visit */ }
+  applyTheme(choice);
+}
+function applyTheme(choice = themeChoice()) {
+  const dark = choice === 'dark' || (choice === 'system' && darkQuery.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1D1A17' : '#F5F0E7');
+}
+darkQuery.addEventListener('change', () => applyTheme());
+
 let cleanup = null;
 let first = true;
 let main;
@@ -68,6 +84,7 @@ async function route() {
 }
 
 async function boot() {
+  applyTheme();
   const nav = h('nav', { class: 'nav', 'aria-label': 'Main' },
     NAV.map(([href, screen, label]) => h('a', { href, 'data-screen': screen }, icon(screen), h('span', { text: label }))));
   const topbar = h('header', { class: 'topbar' },

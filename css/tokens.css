@@ -69,6 +69,35 @@
   --ease-in-out: cubic-bezier(.4, 0, .2, 1);
 }
 
+/* Dark: warm charcoal, light sage accent. Set on <html data-theme="dark"> by the inline
+   script in index.html (Settings → Appearance: System / Light / Dark). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1D1A17;
+  --surface: #25211D;
+  --surface-warm: #342D26;
+  --surface-cool: #262C23;
+  --text: #ECE5D8;
+  --text-2: #B2A796;
+  --accent: #A7BA8C;
+  --accent-ink: #1D1A17;
+  --line: #38322B;
+  --line-strong: #7C7061;
+  --success: #A7C48F;
+  --warning: #E2B46E;
+  --danger: #EE9480;
+
+  --sage: #6F8159;
+  --clay: #A8836B;
+  --clay-dark: #8C6B55;
+  --bark: #9A8069;
+  --beige: #4A4239;
+
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+:root { color-scheme: light; }
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-1: 0ms;
