@@ -206,6 +206,15 @@ Health & Wellness, Equality Arlington, UTA LGBTQ+ Program on events.uta.edu,
 "This week near you" card needs calendar (iCal) support in the worker.
 Also planned with it: a **Calendar** button next to Recently opened (the clock)
 that opens one calendar showing every events calendar's events in one place.
+Newsletter route (the owner's idea, parked until they're at a desktop): many of
+these groups send newsletters. (1) Their "View in browser" link may reveal a
+feed: Mailchimp archives (`mailchi.mp`/`campaign-archive.com`) have one, and so
+do Substack, beehiiv, Buttondown and Ghost. (2) Otherwise, Kill the Newsletter
+(kill-the-newsletter.com) turns an email address into an Atom feed the worker
+already reads. (3) Most private option: Cloudflare Email Routing into the
+worker, which needs a domain the owner owns. Each issue becomes one Nearby post
+(events aren't dated, so they won't reach the Calendar). Newsletter HTML will
+need a cleanup pass for the article view.
 
 Next:
 - Connections between new items and saved quotes.
