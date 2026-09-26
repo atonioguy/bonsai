@@ -78,7 +78,7 @@ scroll end when you want it to.
 | Piece | Where | Notes |
 |------|------|------|
 | App (HTML/CSS/JS, PWA) | GitHub Pages, this repo | `atonioguy.github.io/bonsai`. No build step to start. |
-| Feed worker `bonsai-feeds` | Cloudflare (free plan) | Refreshes one source from `sources.json` every 5 minutes (each about every 2 h, to stay inside the free CPU limit), stores cards in KV and serves `/feed`. Drops paywalled posts for sources marked `hideLocked`. Browsers can't fetch most feeds directly (CORS), so this is required. Holds no personal keys. |
+| Feed worker `bonsai-feeds` | Cloudflare (free plan) | Every 5 minutes refreshes the sources from `sources.json` that are over 2 h old, within a size budget (free-plan CPU and KV limits), stores cards in KV and serves `/feed`. Drops paywalled posts for sources marked `hideLocked`. Browsers can't fetch most feeds directly (CORS), so this is required. Holds no personal keys. |
 | Books, leaves, reading progress | On the phone (IndexedDB) | Private. Books are **never** committed: the repo is public. |
 | Side Quest bridge | Existing `aquamarine-data` worker | Only `POST /focus`. |
 
@@ -192,6 +192,8 @@ takeaways.
     a budget) instead of one source, so it fills in minutes; `/health` shows
     whether it's running; the app nudges it while open if sources are missing,
     and Library warns (with the fix) when its schedule has stopped.
+    v0.6.2: schedule every 5 minutes, not 2, to stay well under the free
+    plan's 1,000 KV lists a day.
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT

@@ -203,7 +203,7 @@ function isLocked(item) {
 
 // ===== worker.js =====
 // bonsai-feeds — Cloudflare Worker
-// Keeps one small KV entry per source. Every 2 minutes (cron) it refreshes the sources that are
+// Keeps one small KV entry per source. Every 5 minutes (cron) it refreshes the sources that are
 // due (older than 2 h), a few at a time within a byte budget so each run stays inside the free
 // plan's CPU limit (a large feed takes a few ms to parse).
 // GET /feed stitches the stored entries together as text, without re-parsing them.

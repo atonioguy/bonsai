@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE on every release so phones pick up the new files.
-const CACHE = 'bonsai-0.6.1';
+const CACHE = 'bonsai-0.6.2';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'sources.json',
   'css/tokens.css', 'css/app.css',

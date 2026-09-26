@@ -120,5 +120,5 @@ function serverLine(feed, app) {
   }
   return h('div', { class: 'fail-block', style: 'margin-bottom: var(--s-5)', role: 'status' },
     h('p', { class: 'label warn', text: `Feed server: ${health.loaded} of ${health.expected} sources loaded, ${last}.` }),
-    h('p', { class: 'hint', text: 'Its schedule doesn’t seem to be running. In Cloudflare, open bonsai-feeds → Settings → Trigger events and check there’s a Cron Trigger set to */2 * * * *. Until then, Bonsai loads sources while the app is open.' }));
+    h('p', { class: 'hint', text: 'Its schedule doesn’t seem to be running. In Cloudflare, open bonsai-feeds → Settings → Trigger events and check there’s a Cron Trigger set to */5 * * * *. Until then, Bonsai loads sources while the app is open.' }));
 }

@@ -2,10 +2,10 @@ name = "bonsai-feeds"
 main = "worker.js"
 compatibility_date = "2024-11-01"
 
-# Refresh one source every 2 minutes (~50 sources: each about every 2 hours).
-# 720 runs/day keeps KV writes under the free plan's 1,000/day.
+# Every 5 minutes, refresh the sources that are over 2 hours old. Each run does one KV list;
+# 288 runs/day stays well under the free plan's 1,000 lists/day.
 [triggers]
-crons = ["*/2 * * * *"]
+crons = ["*/5 * * * *"]
 
 # Optional overrides (worker.js has these defaults):
 # [vars]
