@@ -61,6 +61,7 @@ export const DEFAULT_SETTINGS = {
   sessionMinutes: 15,
   sqUrl: '',
   sqKey: '',
+  libraryId: '',
   muted: [],
 };
 

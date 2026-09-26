@@ -175,7 +175,7 @@ export async function render(main, app) {
 
   await initSeen();
   draw();
-  if (app.feedScroll) requestAnimationFrame(() => window.scrollTo(0, app.feedScroll));
+  if (app.feedScroll) { const y = app.feedScroll; app.onShown = () => window.scrollTo(0, y); }
   load(false);
 
   return () => {

@@ -184,3 +184,68 @@ export function weekSummary({ sessions = [], saved = [] }, now = Date.now()) {
 export function foliageScale(count) {
   return 0.55 + 0.45 * Math.min(1, count / 20);
 }
+
+// ---------- your bonsai (growth) ----------
+// It grows with what you do in the app. Points: 1 per minute read (books), 10 per finished
+// timed session, 1 per article opened, 5 per article read to the end, 3 per saved quote,
+// 2 per note, 1 per reaction. Each topic's branch grows with that topic's share.
+export const STAGES = [
+  [0, 'Seed'], [25, 'Sprout'], [100, 'Sapling'], [250, 'Young tree'],
+  [600, 'Shaped'], [1200, 'Mature'], [2500, 'Old tree'],
+];
+
+export function growth({ sessions = [], posts = [], quotes = [], bookTopics = {} } = {}) {
+  let points = 0;
+  const byTopic = {};
+  const add = (n, topic) => { points += n; if (topic) byTopic[topic] = (byTopic[topic] || 0) + n; };
+  for (const s of sessions) {
+    if (!s.end) continue;
+    add(Math.floor((s.activeSec || 0) / 60) + (s.mode !== 'free' && s.complete ? 10 : 0), bookTopics[s.bookId]);
+  }
+  for (const p of posts) {
+    const t = p.item && p.item.topic;
+    if (p.openedAt) add(1, t);
+    if (p.scroll >= 0.9) add(5, t);
+    add(2 * (p.notes ? p.notes.length : 0) + (p.reaction ? 1 : 0), t);
+  }
+  for (const q of quotes) add(3, q.topic);
+
+  let stage = 0;
+  while (stage < STAGES.length - 1 && points >= STAGES[stage + 1][0]) stage++;
+  const from = STAGES[stage][0];
+  const to = stage < STAGES.length - 1 ? STAGES[stage + 1][0] : null;
+  const progress = to ? (points - from) / (to - from) : 1;
+  return {
+    points, byTopic, stage, name: STAGES[stage][1],
+    next: to ? { at: to, name: STAGES[stage + 1][1] } : null,
+    progress,
+    g: Math.min(1, (stage + progress) / (STAGES.length - 1)), // 0…1 overall size for the drawing
+  };
+}
+
+export function totals({ sessions = [], posts = [] } = {}, from = 0) {
+  const s = sessions.filter((x) => x.end && x.end >= from);
+  return {
+    minutes: Math.round(s.reduce((n, x) => n + (x.activeSec || 0), 0) / 60),
+    sessions: s.filter((x) => x.complete).length,
+    finished: posts.filter((p) => p.scroll >= 0.9 && (p.openedAt || 0) >= from).length,
+  };
+}
+
+// ---------- article identifiers (for full text) ----------
+// PubMed links carry the PMID; journal links usually carry the DOI.
+export function articleIds(item) {
+  const text = [item.url, item.id && String(item.id).startsWith('pmid') ? item.id : '', item.html, item.excerpt].filter(Boolean).join(' ');
+  const pmid = (/pubmed\.ncbi\.nlm\.nih\.gov\/(\d{5,9})/.exec(text) || /\bPMID:?\s*(\d{5,9})\b/i.exec(text) || [])[1] || null;
+  const pmcid = (/\b(PMC\d{5,9})\b/.exec(text) || [])[1] || null;
+  let doi = (/\b(10\.\d{4,9}\/[^\s"'<>&?#]+)/.exec(text) || [])[1] || null;
+  if (doi) doi = decodeURIComponent(doi).replace(/[.,;:)\]]+$/, '').replace(/\/(full|abstract|pdf|epdf)$/i, '');
+  return pmid || pmcid || doi ? { pmid, pmcid, doi } : null;
+}
+
+export function libkeyUrl(libraryId, ids) {
+  if (!libraryId || !ids) return '';
+  if (ids.doi) return `https://libkey.io/libraries/${encodeURIComponent(libraryId)}/${ids.doi}`;
+  if (ids.pmid) return `https://libkey.io/libraries/${encodeURIComponent(libraryId)}/pmid/${ids.pmid}`;
+  return '';
+}

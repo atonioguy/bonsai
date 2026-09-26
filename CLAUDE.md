@@ -25,6 +25,10 @@ setup steps plainly.
 | `js/books.js`, `js/epub.js` | EPUB import (zip read with `DecompressionStream`) and reading progress |
 | `js/sanitize.js` | Allowlist HTML cleaner for feed and book content |
 | `js/sidequest.js` | Logs finished sessions to Side Quest's worker (`POST /focus`) |
+| `js/posts.js` | Per-article state on the device: snapshot, opened, scroll, bookmark + folders, reading list, reaction, notes; opened/seen indexes |
+| `js/prefs.js` | Theme + reading text size (localStorage, applied before paint by `index.html`) |
+| `js/fulltext.js` | Europe PMC lookup + JATS → HTML for "Load full article" |
+| `js/readtools.js`, `js/recent.js` | The Aa popover; the Recently opened drawer |
 | `worker/` | `bonsai-feeds` Cloudflare Worker. Edit `worker.js`/`parse.js`, then `node worker/build.mjs` regenerates `bonsai-feeds.js`, the single file the owner pastes into the Cloudflare dashboard |
 | `sources.json` | Topics, sources (feed URLs) and suggested free books. Read by both the app and the worker |
 | `test/` | `node --test test/*.test.mjs` (unit), `node test/ui.mjs` (browser run + screenshots) |

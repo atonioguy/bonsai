@@ -42,6 +42,14 @@ export default {
         const done = await refreshNext(env, await loadSources(env));
         return json({ ok: true, refreshed: done }, 200, cors);
       }
+      // Relay for Europe PMC (full text of open-access papers), in case the browser can't reach it
+      // directly. Only its search and full-text XML paths are allowed, so this isn't an open proxy.
+      if (url.pathname === '/epmc' && req.method === 'GET') {
+        const path = url.searchParams.get('path') || '';
+        if (!/^(search\?[^#]*|PMC\d{4,10}\/fullTextXML)$/.test(path)) return json({ error: 'not allowed' }, 400, cors);
+        const r = await fetch('https://www.ebi.ac.uk/europepmc/webservices/rest/' + path, { cf: { cacheTtl: 86400 } });
+        return new Response(r.body, { status: r.status, headers: { ...cors, 'content-type': r.headers.get('content-type') || 'text/plain' } });
+      }
       if (url.pathname === '/' || url.pathname === '/health') {
         return json({ ok: true, name: 'bonsai-feeds' }, 200, cors);
       }

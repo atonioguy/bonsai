@@ -121,3 +121,36 @@ test('composeFeed: reading-list items and throwbacks take turns', () => {
   const out = composeFeed(entries, { listed: [{ id: 'l1' }], throwbacks: [{ id: 't1' }, { id: 't2' }] });
   assert.deepEqual(out.filter((x) => x.type !== 'entry').map((x) => x.data.id), ['l1', 't1', 't2']);
 });
+
+import { growth, STAGES } from '../js/logic.js';
+
+test('growth: points from reading, sessions, articles, quotes; stages and topics', () => {
+  const empty = growth();
+  assert.deepEqual([empty.points, empty.stage, empty.name], [0, 0, 'Seed']);
+  const g = growth({
+    sessions: [{ end: 1, activeSec: 1200, mode: 'timed', complete: true, bookId: 'b' }, { end: 1, activeSec: 600, mode: 'free', complete: true, bookId: 'x' }, { activeSec: 999 }],
+    posts: [{ openedAt: 1, scroll: 1, item: { topic: 'mind' }, notes: [{}], reaction: 'loved' }, { openedAt: 1, scroll: 0.2, item: { topic: 'tao' }, notes: [] }],
+    quotes: [{ topic: 'mind' }],
+    bookTopics: { b: 'tao' },
+  });
+  // 20+10 (tao) + 10 (no topic) + 1+5+2+1 (mind) + 1 (tao) + 3 (mind)
+  assert.equal(g.points, 53);
+  assert.deepEqual(g.byTopic, { tao: 31, mind: 12 });
+  assert.equal(g.name, 'Sprout');
+  assert.equal(g.next.name, 'Sapling');
+  assert.ok(g.progress > 0.37 && g.progress < 0.38);
+  assert.equal(growth({ quotes: Array(1000).fill({}) }).name, STAGES.at(-1)[1]);
+});
+
+import { articleIds, libkeyUrl } from '../js/logic.js';
+
+test('articleIds: PMID from PubMed links, DOI from journal links, PMCID in text', () => {
+  assert.deepEqual(articleIds({ url: 'https://pubmed.ncbi.nlm.nih.gov/39797602/?utm_source=x' }), { pmid: '39797602', pmcid: null, doi: null });
+  assert.equal(articleIds({ url: 'https://www.tandfonline.com/doi/full/10.1080/26895269.2025.1234567?af=R' }).doi, '10.1080/26895269.2025.1234567');
+  assert.equal(articleIds({ url: 'https://link.springer.com/article/10.1186/s40479-025-00280-1' }).doi, '10.1186/s40479-025-00280-1');
+  assert.equal(articleIds({ url: 'https://x.org', html: '<p>doi: 10.1016/j.jad.2025.01.002.</p><p>PMC11223344</p>' }).pmcid, 'PMC11223344');
+  assert.equal(articleIds({ url: 'https://example.org/essay' }), null);
+  assert.equal(libkeyUrl('782', { pmid: '41000322' }), 'https://libkey.io/libraries/782/pmid/41000322');
+  assert.equal(libkeyUrl('782', { doi: '10.1/abc', pmid: '1' }), 'https://libkey.io/libraries/782/10.1/abc');
+  assert.equal(libkeyUrl('', { pmid: '1' }), '');
+});

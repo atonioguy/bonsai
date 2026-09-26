@@ -1,5 +1,6 @@
 import * as db from '../db.js';
-import { relTime, newListEntry } from '../logic.js';
+import { relTime, newListEntry, articleIds, libkeyUrl } from '../logic.js';
+import { loadFullText } from '../fulltext.js';
 import { h, icon, toast, fmtDate, sharePost, openSheet, REACTIONS, reactionIcon, avatarEl } from '../ui.js';
 import { sanitize } from '../sanitize.js';
 import { attachSaveQuote } from '../selection.js';
@@ -119,9 +120,51 @@ export async function render(main, app, id) {
   const text = h('div', { class: 'prose' });
   if (body) text.innerHTML = body; // sanitized
   else text.appendChild(h('p', { text: item.excerpt }));
+  const readArea = h('div', {}, text);
+
+  // ---------- full text (research papers): load it here, or open it in the browser ----------
+  const ids = hasFull ? null : articleIds(item);
+  const fullWrap = h('div', { class: 'fulltext' });
+  const showFull = (html) => {
+    const prose = h('div', { class: 'prose' });
+    prose.innerHTML = html; // sanitized in fulltext.js
+    fullWrap.replaceChildren(
+      h('h2', { class: 'section-title', text: 'Full text' }),
+      h('p', { class: 'meta', text: 'Open-access copy from Europe PMC' }),
+      prose);
+  };
+  const browserUrl = ids?.pmcid ? `https://pmc.ncbi.nlm.nih.gov/articles/${ids.pmcid}/` : item.url;
+  const library = libkeyUrl(app.settings.libraryId, ids);
+  readArea.appendChild(fullWrap);
+  const loadArea = h('div', { class: 'article-actions' });
+  if (post.fullHtml) showFull(post.fullHtml);
+  else if (ids) {
+    const loadBtn = h('button', { type: 'button', class: 'btn btn-primary', onclick: async () => {
+      loadBtn.disabled = true;
+      loadBtn.textContent = 'Loading…';
+      try {
+        const { html, pmcid } = await loadFullText(ids, app.settings);
+        post.fullHtml = html;
+        post.pmcid = pmcid;
+        await save();
+        showFull(html);
+        loadArea.remove();
+      } catch (e) {
+        toast('Couldn’t load the full article');
+        loadArea.replaceChildren(h('div', { class: 'fail-block', role: 'status' },
+          h('p', { class: 'label', text: 'Couldn’t load the full article here. Open it in the browser?' }),
+          h('p', { class: 'hint', text: e.message || '' }),
+          h('div', { class: 'article-actions' },
+            browserUrl ? h('a', { class: 'btn btn-secondary', href: browserUrl, target: '_blank', rel: 'noopener noreferrer' }, 'Open in browser', icon('external', 18)) : null,
+            library ? h('a', { class: 'btn btn-secondary', href: library, target: '_blank', rel: 'noopener noreferrer' }, 'Open with library access', icon('external', 18)) : null),
+          library ? null : h('p', { class: 'hint' }, 'To open papers through your library, add your LibKey library ID in ', h('a', { href: '#/settings' }, 'Settings'), '.')));
+      }
+    } }, 'Load full article');
+    loadArea.appendChild(loadBtn);
+  }
 
   const open = item.url
-    ? h('a', { class: hasFull ? 'btn btn-secondary' : 'btn btn-primary', href: item.url, target: '_blank', rel: 'noopener noreferrer' },
+    ? h('a', { class: hasFull || ids ? 'btn btn-secondary' : 'btn btn-primary', href: item.url, target: '_blank', rel: 'noopener noreferrer' },
       'Open original', icon('external', 18))
     : null;
 
@@ -177,8 +220,9 @@ export async function render(main, app, id) {
         h('p', { class: 'meta', text: [item.sourceName, fmtDate(item.published) || relTime(item.published)].filter(Boolean).join(' · ') }),
         h('h1', { class: 'article-title', text: item.title }),
         item.audioUrl ? h('audio', { controls: true, preload: 'none', src: item.audioUrl }) : null),
-      text,
-      !hasFull && item.url ? h('p', { class: 'meta', style: 'margin-top: var(--s-5)', text: 'The full text isn’t in the feed.' }) : null,
+      readArea,
+      !hasFull && !ids && item.url ? h('p', { class: 'meta', style: 'margin-top: var(--s-5)', text: 'The full text isn’t in the feed.' }) : null,
+      ids && !post.fullHtml ? loadArea : null,
       open ? h('div', { class: 'article-actions' }, open) : null,
       listEnd,
       h('section', { class: 'end-block', 'aria-labelledby': 'react-title' },
@@ -189,10 +233,10 @@ export async function render(main, app, id) {
   paintTools();
 
   // ---------- keep your place ----------
-  requestAnimationFrame(() => {
+  app.onShown = () => {
     const max = document.documentElement.scrollHeight - window.innerHeight;
     if (post.scroll > 0 && max > 0) window.scrollTo(0, post.scroll * max);
-  });
+  };
   let scrollTimer = null;
   // Track your place as you scroll (not when leaving: the browser may already have moved).
   const onScroll = () => {
@@ -203,7 +247,7 @@ export async function render(main, app, id) {
   };
   window.addEventListener('scroll', onScroll, { passive: true });
 
-  const detachQuote = attachSaveQuote(text, () => ({ topic: item.topic, sourceName: item.sourceName, sourceTitle: item.title, url: item.url, postId: item.id }));
+  const detachQuote = attachSaveQuote(readArea, () => ({ topic: item.topic, sourceName: item.sourceName, sourceTitle: item.title, url: item.url, postId: item.id }));
   return async () => {
     clearTimeout(scrollTimer);
     window.removeEventListener('scroll', onScroll);

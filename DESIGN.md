@@ -49,9 +49,10 @@ engagement numbers, and no metadata rows.
   circle) used as the session timer, and a leaf used for saving. No pixel art;
   this app shares nothing visually with Side Quest.
 - **Where personality lives:**
-  - **Saved screen:** the one illustration, a bonsai whose branches are your
-    topics. Foliage grows with how much you've saved in each topic, so it
-    carries real information.
+  - **Bonsai tab:** the one illustration. The tree is drawn from your real
+    activity: the trunk and crown grow with everything you do, and each topic
+    grows its own branch once you read in it. Moss, a stone, blossoms and a
+    top layer arrive at later stages (Seed → Old tree, 7 stages).
   - **Session timer:** the ensō ring, and a full ensō on the "Session complete"
     screen.
   - **Header:** the small tree mark and the italic serif "bonsai" wordmark.
@@ -65,7 +66,15 @@ engagement numbers, and no metadata rows.
 - **Product vocabulary** (real features, used as-is):
   - **Feed**: the main scroll.
   - **Library**: your books and sources.
-  - **Saved**: saved quotes.
+  - **Collections**: your Reading list, your Bookmarks (in Folders) and
+    your Quotes.
+  - **Reading list**: articles to finish later. They come back in the feed
+    until you remove them at the end of the article.
+  - **Bookmark** / **Folder**: articles kept to find again.
+  - **Bonsai** (the tab): your tree, which grows as you use the app.
+  - **Notes**: your own comments under an article.
+  - **Reactions**: Learned something, Made me think, Loved it, Grounding,
+    More like this. These are drawn glyphs, not emoji.
   - **Session**: a timed reading session of 5, 15 or 25 min. It only counts if
     you finish it.
   - **Free read**: reading with no timer. All the active time counts.
@@ -74,8 +83,9 @@ engagement numbers, and no metadata rows.
   - **Source**: a journal, newsletter, podcast or site.
   - **Side Quest**: the companion app sessions are logged to.
 
-  Everything else uses plain UI terms. In particular, don't use garden, leaf,
-  branch, tend, grow or prune in copy. The tree says that visually.
+  Everything else uses plain UI terms. On the Bonsai tab, "grows" and
+  "branch" are literal descriptions of the drawing, so they're allowed there.
+  Elsewhere, don't use garden, leaf, tend, grow or prune in copy.
 
 Personality comes from this world: illustration, color, the ensō, and motion.
 It does not come from generic UI decoration or from copy describing the mood.
@@ -200,8 +210,13 @@ decide, or act. Otherwise cut it.
   is emphasized, nothing is.
 - **Containers:** a container needs a reason. Bonsai uses exactly three:
   - The book card, a different kind of thing with its own action.
-  - The throwback, your own words and not new content.
-  - Floating bars (Save quote, toasts).
+  - The throwback (your own words) and the reading-list card (outlined: your
+    own queue coming back around).
+  - Floating layers: Save quote bar, toasts, the Aa popover, bottom sheets,
+    and the Recently opened drawer.
+
+  Posts in the feed are separated by a hairline (`--line`), not boxes. Opened
+  posts get a quieter title plus the word "Opened" in the meta line.
 
   Articles sit directly on the page. No cards inside cards.
 - **Empty space:** whitespace is intentional, so don't fill it with UI. If a

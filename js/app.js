@@ -12,7 +12,8 @@ const SCREENS = {
   item: () => import('./screens/item.js'),
   library: () => import('./screens/library.js'),
   read: () => import('./screens/reader.js'),
-  saved: () => import('./screens/saved.js'),
+  collections: () => import('./screens/collections.js'),
+  bonsai: () => import('./screens/bonsai.js'),
   settings: () => import('./screens/settings.js'),
 };
 
@@ -21,14 +22,17 @@ const ROUTES = [
   [/^#\/item\/([^/]+)$/, 'item'],
   [/^#\/library$/, 'library'],
   [/^#\/read\/([^/]+)(?:\/(free|[0-9.]+))?$/, 'read'],
-  [/^#\/saved(?:\/(list|bookmarks|quotes|folder)(?:\/([^/]+))?)?$/, 'saved'],
+  [/^#\/(?:collections|saved)(?:\/(list|bookmarks|quotes|folder)(?:\/([^/]+))?)?$/, 'collections'],
+  [/^#\/bonsai$/, 'bonsai'],
   [/^#\/settings$/, 'settings'],
 ];
 
+const NAV_ICON = { collections: 'bookmark', bonsai: 'saved' };
 const NAV = [
   ['#/', 'feed', 'Feed'],
   ['#/library', 'library', 'Library'],
-  ['#/saved', 'saved', 'Saved'],
+  ['#/collections', 'collections', 'Collections'],
+  ['#/bonsai', 'bonsai', 'Bonsai'],
   ['#/settings', 'settings', 'Settings'],
 ];
 
@@ -39,6 +43,7 @@ export const app = {
   feedScroll: 0,
   topic: 'all',
   prevHash: null,
+  onShown: null, // a screen can set this to run once it's on screen (e.g. restore a scroll position)
   topicName(id) { return this.config.topics.find((t) => t.id === id)?.name || ''; },
   // Back to wherever you came from inside the app (feed, a folder, Recent…), else the feed.
   back() { if (this.prevHash) history.back(); else location.hash = '#/'; },
@@ -46,7 +51,7 @@ export const app = {
 };
 
 // How deep a screen sits, for the slide direction of screen changes.
-const depthOf = (name, params) => (name === 'item' || name === 'read' || (name === 'saved' && params[0] === 'folder') ? 1 : 0);
+const depthOf = (name, params) => (name === 'item' || name === 'read' || (name === 'collections' && params[0] === 'folder') ? 1 : 0);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let depth = 0;
 
@@ -55,8 +60,16 @@ let first = true;
 let main;
 let lastHash = null;
 
-async function route() {
+// Screen changes run one at a time, so a quick second tap can't interleave with the first.
+let routing = Promise.resolve();
+function route() {
+  routing = routing.then(doRoute).catch((e) => console.error(e));
+  return routing;
+}
+
+async function doRoute() {
   const hash = location.hash || '#/';
+  if (hash === lastHash && !first) return; // already showing it (a queued duplicate)
   app.prevHash = lastHash;
   lastHash = hash;
   let name = 'feed', params = [];
@@ -96,6 +109,9 @@ async function route() {
   }
   if (!first) main.focus({ preventScroll: true });
   first = false;
+  const shown = app.onShown;
+  app.onShown = null;
+  if (shown) requestAnimationFrame(() => shown());
 }
 
 async function boot() {
@@ -103,7 +119,7 @@ async function boot() {
   applyTheme();
   applyText();
   const nav = h('nav', { class: 'nav', 'aria-label': 'Main' },
-    NAV.map(([href, screen, label]) => h('a', { href, 'data-screen': screen }, icon(screen), h('span', { text: label }))));
+    NAV.map(([href, screen, label]) => h('a', { href, 'data-screen': screen }, icon(NAV_ICON[screen] || screen), h('span', { text: label }))));
   const topbar = h('header', { class: 'topbar' },
     h('a', { class: 'brand', href: '#/', 'aria-label': 'Bonsai, feed' }, treeMark(28), h('span', { 'aria-hidden': 'true', text: 'bonsai' })),
     h('div', { class: 'topbar-end' },

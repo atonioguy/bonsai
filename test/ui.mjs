@@ -37,6 +37,16 @@ for (let i = 0; i < 9; i++) {
     audioUrl: '', image: '',
   });
 }
+// two PubMed alerts: one open access (full text loads), one not (falls back to the browser)
+for (const [id, pmid] of [['pm-open', '39797602'], ['pm-closed', '41000322']]) {
+  items.push({ id, sourceId: 'pubmed-alert-adult-adhd', sourceName: 'PubMed alert: adult ADHD', topic: 'mind', kind: 'research',
+    title: 'Sample study ' + pmid, url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/?utm_source=Other`, published: iso(90),
+    excerpt: 'Sample abstract.', html: '<p>Background: sample abstract text.</p>', audioUrl: '', image: '' });
+}
+const JATS = `<?xml version="1.0"?><article xmlns:xlink="http://www.w3.org/1999/xlink"><front/><body>
+  <sec><title>Introduction</title><p>${'Sample full-text sentence with <italic>emphasis</italic> and a citation<xref ref-type="bibr" rid="r1">1</xref>. '.repeat(8)}</p></sec>
+  <sec><title>Methods</title><p>${'Methods sample sentence. '.repeat(12)}</p><list list-type="order"><list-item><p>First step</p></list-item><list-item><p>Second step</p></list-item></list>
+  <fig id="f1"><label>Figure 1</label><caption><p>A sample figure caption.</p></caption><graphic xlink:href="f1.jpg"/></fig></sec></body></article>`;
 const FEED = { updatedAt: iso(1), items, status: [{ id: 'sample-journal', ok: false, error: 'HTTP 404' }] };
 
 // A tiny EPUB built in memory (deflate, like real EPUBs).
@@ -116,6 +126,13 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   });
   await page.route('https://sq.test/**', (route) => { focusPosts++; route.fulfill({ json: { id: 'x' }, headers: { 'access-control-allow-origin': '*' } }); });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
+  await page.route('https://www.ebi.ac.uk/**', (route) => {
+    const u = decodeURIComponent(route.request().url());
+    const headers = { 'access-control-allow-origin': '*' };
+    if (u.includes('/search?')) return route.fulfill({ headers, json: { resultList: { result: u.includes('39797602') ? [{ pmid: '39797602', pmcid: 'PMC1111111' }] : [{ pmid: '41000322' }] } } });
+    if (u.includes('PMC1111111/fullTextXML')) return route.fulfill({ headers, contentType: 'application/xml', body: JATS });
+    return route.fulfill({ headers, status: 404, body: 'not found' });
+  });
 
   const shot = async (name) => {
     await page.waitForTimeout(250);
@@ -219,6 +236,23 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.waitForTimeout(900);
   await shot('06d-article-end');
 
+  // full text: loads for an open-access paper; otherwise offers the browser
+  await page.goto(BASE + '#/item/pm-open');
+  await page.click('button:has-text("Load full article")');
+  await page.waitForSelector('.fulltext h2:has-text("Full text")');
+  check((await page.textContent('.fulltext')).includes('Methods sample sentence'), 'full text loaded');
+  check(await page.$('.fulltext ol li'), 'full text keeps lists');
+  check(await page.$('.fulltext sup'), 'citations as superscripts');
+  await shot('06f-fulltext');
+  await page.goto(BASE + '#/item/pm-closed');
+  await page.click('button:has-text("Load full article")');
+  await page.waitForSelector('.fail-block');
+  check(await page.$('.fail-block a:has-text("Open in browser")'), 'fallback offers the browser');
+  await shot('06g-fulltext-fail');
+  await page.goto(BASE + '#/item/pm-open');
+  await page.waitForSelector('.fulltext h2');
+  check(!(await page.$('button:has-text("Load full article")')), 'full text kept for next time');
+
   // your place is kept: leave and come back
   const before = await page.evaluate(() => location.hash);
   await page.click('[aria-label="Back"]');
@@ -253,6 +287,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await shot('05b-new-pill');
   await page.click('.new-pill');
   await page.waitForSelector('.earlier');
+  await page.waitForTimeout(700);
   check((await page.textContent('.entry-title')).startsWith('New sample'), 'new posts on top');
   await shot('05c-new-top');
 
@@ -263,13 +298,13 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
     p.list.dueAt = Date.now() - 1000;
     await db.put('posts', 'gen0', p);
   });
-  await page.goto(BASE + '#/saved');
+  await page.goto(BASE + '#/collections');
   await page.goto(BASE + '#/');
   await page.waitForSelector('.listed');
-  await page.goto(BASE + '#/saved/list');
+  await page.goto(BASE + '#/collections/list');
   await page.waitForSelector('.post-row');
   await shot('10b-reading-list');
-  await page.goto(BASE + '#/saved/bookmarks');
+  await page.goto(BASE + '#/collections/bookmarks');
   await page.waitForSelector('.folder-row:has-text("Psych reads")');
   check((await page.textContent('.folder-row:has-text("Psych reads") .meta')) === '1', 'folder count');
   await shot('10c-bookmarks');
@@ -316,10 +351,16 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.click('.complete button[type=submit]');
 
   // 7. saved quotes
-  await page.goto(BASE + '#/saved/quotes');
+  await page.goto(BASE + '#/collections/quotes');
   await page.waitForSelector('.saved-item');
   check((await page.$$('.saved-item')).length === 3, 'three saved entries');
   await shot('10-saved');
+
+  // bonsai tab: grows with activity
+  await page.goto(BASE + '#/bonsai');
+  await page.waitForSelector('svg.bonsai');
+  check((await page.textContent('.stage-name')) !== 'Seed', 'bonsai has grown past a seed');
+  await shot('17-bonsai');
 
   // 8. dark theme (Settings → Appearance)
   await page.goto(BASE + '#/settings');
@@ -334,12 +375,15 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.click('.entry-title a');
   await page.waitForSelector('.article-title');
   await shot('13-dark-article');
-  await page.goto(BASE + '#/saved/quotes');
+  await page.goto(BASE + '#/collections/quotes');
   await page.waitForSelector('.saved-item');
   await shot('14-dark-saved');
   await page.goto(BASE + '#/item/gen0');
   await page.waitForSelector('.article-bar');
   await shot('16-dark-article-tools');
+  await page.goto(BASE + '#/bonsai');
+  await page.waitForSelector('svg.bonsai');
+  await shot('18-dark-bonsai');
   await page.goto(BASE + '#/library');
   await page.waitForSelector('.row-title');
   await shot('15-dark-library');

@@ -60,6 +60,8 @@ npx wrangler deploy
 
 - `GET /feed` → `{ updatedAt, sources: [{ id, meta: { fetchedAt, ok, count, hidden, error }, items: [...] }] }`
 - `POST /refresh` → refreshes the next source now (at most once a minute)
+- `GET /epmc?path=…` → relays Europe PMC's search and `PMCxxxx/fullTextXML` (the app
+  tries Europe PMC directly first; this is the fallback). Other paths are refused.
 - `GET /health` → `{ ok: true }`
 
 `meta.hidden` counts posts dropped as paywalled (sources with `"hideLocked":

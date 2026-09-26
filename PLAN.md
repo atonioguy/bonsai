@@ -159,6 +159,16 @@ takeaways.
    per 25 min with the remainder carried; anything under 5 min is ignored, so
    free reads under 5 min stay local. A free read cut off by closing the app is
    finished and sent the next time Bonsai opens.
+10. ✅ v0.4: hairlines between posts; opened posts dimmed + "Opened"; per-topic
+    new counts, a "N new articles" button and an "Earlier" line; Recently
+    opened drawer; article toolbar (Aa text size + light/dark, share,
+    reading list, bookmark into folders); reading position kept per
+    article; screen transitions; private reactions and notes with a profile
+    avatar; Collections tab (Reading list, Bookmarks with Folders, Quotes);
+    the Bonsai tab (a tree that grows with your activity, plus stats);
+    **Load full article** for research papers via Europe PMC's open-access
+    copy, falling back to "Open in browser" and your library's LibKey link
+    (Settings → Library access).
 
 Next:
 - Connections between new items and saved quotes.

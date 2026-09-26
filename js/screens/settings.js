@@ -13,18 +13,24 @@ export async function render(main, app) {
   const sqUrl = h('input', { class: 'input', id: 'sq-url', type: 'url', inputmode: 'url', autocomplete: 'off', spellcheck: 'false', value: s.sqUrl, placeholder: 'https://aquamarine-data.you.workers.dev', 'aria-describedby': 'sq-url-hint' });
   const sqKey = h('input', { class: 'input', id: 'sq-key', type: 'password', autocomplete: 'off', value: s.sqKey });
 
+  const libraryId = h('input', { class: 'input', id: 'library-id', type: 'text', inputmode: 'numeric', autocomplete: 'off', value: s.libraryId || '', 'aria-describedby': 'library-id-hint' });
+
   const form = h('form', { class: 'form', onsubmit: async (e) => {
     e.preventDefault();
     app.settings = await db.saveSettings({
       feedUrl: feedUrl.value.trim().replace(/\/+$/, ''),
       sqUrl: sqUrl.value.trim().replace(/\/+$/, ''),
       sqKey: sqKey.value.trim(),
+      libraryId: libraryId.value.trim().replace(/\D/g, ''),
     });
     toast('Settings saved');
   } },
   h('section', { class: 'fieldset', 'aria-labelledby': 'set-feed' },
     h('h2', { class: 'section-title', id: 'set-feed', text: 'Feed' }),
     field('feed-url', 'Feed server URL', feedUrl, 'The address of your bonsai-feeds worker.')),
+  h('section', { class: 'fieldset', 'aria-labelledby': 'set-library' },
+    h('h2', { class: 'section-title', id: 'set-library', text: 'Library access' }),
+    field('library-id', 'LibKey library ID', libraryId, 'The number in your library’s LibKey links (libkey.io/libraries/NUMBER/…). Used for papers that aren’t open access.')),
   h('section', { class: 'fieldset', 'aria-labelledby': 'set-sq' },
     h('h2', { class: 'section-title', id: 'set-sq', text: 'Side Quest' }),
     field('sq-url', 'Worker URL', sqUrl, 'Side Quest’s aquamarine-data worker. Finished sessions are logged there as TickTick focus sessions.'),

@@ -98,3 +98,15 @@ test('bonsai-feeds.js (the paste-in file) is up to date', () => {
   assert.equal(readFileSync(new URL('../worker/bonsai-feeds.js', import.meta.url), 'utf8'), bundle(),
     'run: node worker/build.mjs');
 });
+
+test('/epmc relays only Europe PMC search and full-text paths', async () => {
+  const env = { FEEDS: memKV() };
+  const bad = await worker.fetch(new Request('https://w.test/epmc?path=' + encodeURIComponent('../../evil')), env, ctx);
+  assert.equal(bad.status, 400);
+  const saved = globalThis.fetch;
+  globalThis.fetch = async (u) => new Response('<article/>', { status: String(u).includes('europepmc') ? 200 : 500 });
+  const ok = await worker.fetch(new Request('https://w.test/epmc?path=PMC123456%2FfullTextXML'), env, ctx);
+  globalThis.fetch = saved;
+  assert.equal(ok.status, 200);
+  assert.equal(await ok.text(), '<article/>');
+});
