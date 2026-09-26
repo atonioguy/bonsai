@@ -170,3 +170,13 @@ test('pickBrief: one per source, newest first, always one good-news story', () =
   assert.equal(pickBrief([], { now: T0 }).length, 0);
   assert.match(dayKey(T0), /^\d{4}-\d{1,2}-\d{1,2}$/);
 });
+
+import { serverHealth } from '../js/logic.js';
+
+test('serverHealth: stalled when sources are missing and nothing updated for 20+ min', () => {
+  const now = T0;
+  assert.equal(serverHealth([{ id: 'a', fetchedAt: now - 5 * 60e3 }], 3, now).stalled, false);
+  assert.equal(serverHealth([{ id: 'a', fetchedAt: now - 3 * 3600e3 }], 3, now).stalled, true);
+  assert.equal(serverHealth([{ id: 'a', fetchedAt: now - 3 * 3600e3 }], 1, now).stalled, false, 'all loaded: fine');
+  assert.equal(serverHealth([], 3, now).stalled, true);
+});

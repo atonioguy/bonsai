@@ -69,9 +69,10 @@ horizontal overflow and stray "null"/"undefined"/"NaN" text.
 - Worker changes: run `node worker/build.mjs`, then tell the owner to re-paste
   `worker/bonsai-feeds.js` in the Cloudflare dashboard (Edit code → Deploy). That's
   how they deploy; they don't use a terminal. `sources.json` edits need no redeploy.
-- The free Workers plan allows ~10 ms of CPU per run. That's why the worker
-  refreshes one source per 2-minute cron run and `/feed` stitches stored text
-  instead of parsing it. Keep it that way.
+- The free Workers plan allows ~10 ms of CPU per run and 1,000 KV writes a day.
+  That's why each 2-minute cron run refreshes only sources that are due (over 2 h
+  old) within a 300 KB parse budget, and `/feed` stitches stored text instead of
+  parsing it. Keep it that way.
 
 ## Related repo
 

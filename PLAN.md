@@ -188,6 +188,11 @@ takeaways.
     no switch on sources without a feed; a duplicate "open" button on failed
     full text; a tap after a long-press no longer gets swallowed.
 
+13. ✅ v0.6.1: the feed server refreshes everything that's due each run (within
+    a budget) instead of one source, so it fills in minutes; `/health` shows
+    whether it's running; the app nudges it while open if sources are missing,
+    and Library warns (with the fix) when its schedule has stopped.
+
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT
 Health & Wellness, Equality Arlington, UTA LGBTQ+ Program on events.uta.edu,

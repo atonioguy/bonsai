@@ -203,16 +203,20 @@ function isLocked(item) {
 
 // ===== worker.js =====
 // bonsai-feeds — Cloudflare Worker
-// Keeps one small KV entry per source. Every 2 minutes (cron) it refreshes the one source
-// that's been waiting longest, so each run stays well inside the free plan's CPU limit
-// (a large feed takes a few ms to parse). With ~50 sources, each refreshes about every 2 h.
+// Keeps one small KV entry per source. Every 2 minutes (cron) it refreshes the sources that are
+// due (older than 2 h), a few at a time within a byte budget so each run stays inside the free
+// plan's CPU limit (a large feed takes a few ms to parse).
 // GET /feed stitches the stored entries together as text, without re-parsing them.
 // Holds no personal keys: it only reads public feeds.
 
 
 const PER_SOURCE = 12;               // newest items kept per source
 const FETCH_TIMEOUT = 15_000;
-const REFRESH_GAP = 60_000;          // POST /refresh does at most one source a minute
+const REFRESH_GAP = 60_000;          // POST /refresh runs at most once a minute
+const MAX_AGE = 2 * 3600_000;        // a source is due for a refresh after 2 hours
+const RUN_BYTES = 300_000;           // feed text parsed per run: keeps CPU well inside the free limit
+const RUN_MAX = 6;                   // and at most this many sources per run
+// Steady state is ~50 sources / 2 h ≈ 600 KV writes a day, under the free plan's 1,000.
 // Defaults, so the worker runs with only the FEEDS binding set. Override in the worker's variables.
 const SOURCES_URL = 'https://atonioguy.github.io/bonsai/sources.json';
 const ALLOW_ORIGIN = 'https://atonioguy.github.io';
@@ -233,7 +237,7 @@ export default {
         const sources = await loadSources(env);
         let body = await feedBody(env, sources);
         if (!body) { // first visit ever: fetch one source now so the feed isn't empty
-          await refreshNext(env, sources);
+          await refreshDue(env, sources, { force: true });
           body = (await feedBody(env, sources)) || '{"sources":[]}';
         }
         return new Response(body, { headers: { ...cors, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
@@ -242,7 +246,7 @@ export default {
         const last = Number((await env.FEEDS.get('lastRefresh')) || 0);
         if (Date.now() - last < REFRESH_GAP) return json({ ok: true, skipped: true }, 200, cors);
         await env.FEEDS.put('lastRefresh', String(Date.now()));
-        const done = await refreshNext(env, await loadSources(env));
+        const done = await refreshDue(env, await loadSources(env), { force: true });
         return json({ ok: true, refreshed: done }, 200, cors);
       }
       // Relay for Europe PMC (full text of open-access papers), in case the browser can't reach it
@@ -253,8 +257,17 @@ export default {
         const r = await fetch('https://www.ebi.ac.uk/europepmc/webservices/rest/' + path, { cf: { cacheTtl: 86400 } });
         return new Response(r.body, { status: r.status, headers: { ...cors, 'content-type': r.headers.get('content-type') || 'text/plain' } });
       }
+      // How the feed is doing: sources loaded, and when the newest/oldest refresh happened.
       if (url.pathname === '/' || url.pathname === '/health') {
-        return json({ ok: true, name: 'bonsai-feeds' }, 200, cors);
+        const sources = await loadSources(env);
+        const at = await refreshTimes(env);
+        const times = sources.map((x) => at.get(x.id) || 0);
+        const loaded = times.filter(Boolean);
+        return json({
+          ok: true, name: 'bonsai-feeds', sources: sources.length, loaded: loaded.length,
+          newest: loaded.length ? new Date(Math.max(...loaded)).toISOString() : null,
+          overdue: times.filter((t) => Date.now() - t >= MAX_AGE).length,
+        }, 200, cors);
       }
       return json({ error: 'not found' }, 404, cors);
     } catch (e) {
@@ -263,7 +276,7 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(loadSources(env).then((sources) => refreshNext(env, sources)));
+    ctx.waitUntil(loadSources(env).then((sources) => refreshDue(env, sources)));
   },
 };
 
@@ -286,31 +299,48 @@ async function feedBody(env, sources) {
   return '{"updatedAt":' + JSON.stringify(new Date().toISOString()) + ',"sources":[' + parts.join(',') + ']}';
 }
 
-// Refresh the source that has waited longest (never-fetched ones first).
-async function refreshNext(env, sources) {
-  if (!sources.length) return null;
+async function refreshTimes(env) {
   const listed = await env.FEEDS.list({ prefix: 'src:' });
-  const seen = new Map(listed.keys.map((k) => [k.name.slice(4), (k.metadata && k.metadata.fetchedAt) || 0]));
-  const next = sources.slice().sort((a, b) => (seen.get(a.id) || 0) - (seen.get(b.id) || 0))[0];
-  await refreshOne(env, next);
-  return next.id;
+  return new Map(listed.keys.map((k) => [k.name.slice(4), (k.metadata && k.metadata.fetchedAt) || 0]));
+}
+
+// Refresh every source that's due (never fetched, or older than MAX_AGE), stalest first, until the
+// run's byte budget is used. A new install fills in minutes; after that most runs do one or none.
+// force: if nothing is due, refresh the stalest one anyway (manual refresh, first visit).
+async function refreshDue(env, sources, { force = false } = {}) {
+  if (!sources.length) return [];
+  const at = await refreshTimes(env);
+  const now = Date.now();
+  const order = sources.slice().sort((a, b) => (at.get(a.id) || 0) - (at.get(b.id) || 0));
+  let due = order.filter((x) => now - (at.get(x.id) || 0) >= MAX_AGE);
+  if (!due.length && force) due = order.slice(0, 1);
+  const done = [];
+  let bytes = 0;
+  for (const x of due.slice(0, RUN_MAX)) {
+    bytes += await refreshOne(env, x);
+    done.push(x.id);
+    if (bytes >= RUN_BYTES) break;
+  }
+  return done;
 }
 
 async function refreshOne(env, s) {
   const key = 'src:' + s.id;
   try {
-    const all = await fetchOne(s, env);
+    const { items: all, bytes } = await fetchOne(s, env);
     const open = s.hideLocked ? all.filter((it) => !isLocked(it)) : all;
     const kept = open.slice(0, PER_SOURCE);
     await env.FEEDS.put(key, JSON.stringify(kept), {
       metadata: { fetchedAt: Date.now(), ok: true, count: kept.length, hidden: all.length - open.length },
     });
+    return bytes;
   } catch (e) {
     // Keep the last good items; just record the failure.
     const old = await env.FEEDS.getWithMetadata(key);
     await env.FEEDS.put(key, old.value || '[]', {
       metadata: { ...(old.metadata || {}), fetchedAt: Date.now(), ok: false, error: String(e && e.message || e).slice(0, 160) },
     });
+    return 0;
   }
 }
 
@@ -352,7 +382,7 @@ async function fetchOne(source, env) {
   // Parse a few spare items so hidden (locked) posts can be replaced.
   const items = parseFeed(xml, source, source.hideLocked ? PER_SOURCE * 2 : PER_SOURCE);
   if (!items.length && !/<(rss|feed|rdf:RDF)\b/i.test(xml)) throw new Error('not a feed');
-  return items;
+  return { items, bytes: xml.length };
 }
 
 function json(obj, status, headers) {

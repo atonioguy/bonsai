@@ -1,5 +1,6 @@
 import * as db from '../db.js';
 import { h, icon, toast } from '../ui.js';
+import { serverHealth, relTime } from '../logic.js';
 import { bookIndex, addBook, removeBook, progress, fraction, percent } from '../books.js';
 
 export async function render(main, app) {
@@ -101,9 +102,23 @@ export async function render(main, app) {
   const sources = h('section', { class: 'section', 'aria-labelledby': 'sources-title' },
     h('h2', { class: 'section-title', id: 'sources-title', text: 'Sources' }),
     h('p', { class: 'hint', style: 'margin-bottom: var(--s-4)', text: 'Switch a source off to hide it from the feed.' }),
+    serverLine(feed, app),
     groups);
 
   main.append(h('h1', { class: 'screen-title', text: 'Library' }), books, sources);
 }
 
 render.again = (main, app) => { main.replaceChildren(); return render(main, app); };
+
+// One line about the feed server; if its schedule has stopped, say how to fix it.
+function serverLine(feed, app) {
+  if (!feed) return null;
+  const health = serverHealth(feed.status, app.config.sources.filter((x) => x.feed).length);
+  const last = health.newest ? 'last updated a source ' + relTime(health.newest) : 'hasn’t updated yet';
+  if (!health.stalled) {
+    return h('p', { class: 'meta', style: 'margin-bottom: var(--s-4)', text: `Feed server: ${health.loaded} of ${health.expected} sources loaded, ${last}.` });
+  }
+  return h('div', { class: 'fail-block', style: 'margin-bottom: var(--s-5)', role: 'status' },
+    h('p', { class: 'label warn', text: `Feed server: ${health.loaded} of ${health.expected} sources loaded, ${last}.` }),
+    h('p', { class: 'hint', text: 'Its schedule doesn’t seem to be running. In Cloudflare, open bonsai-feeds → Settings → Trigger events and check there’s a Cron Trigger set to */2 * * * *. Until then, Bonsai loads sources while the app is open.' }));
+}

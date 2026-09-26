@@ -1,7 +1,7 @@
 import * as db from '../db.js';
 import {
   mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, SESSION_CHOICES,
-  dueListed, afterListShown, newCounts, splitNew, pickBrief, dayKey, BRIEF_SIZE,
+  dueListed, afterListShown, newCounts, splitNew, pickBrief, dayKey, BRIEF_SIZE, serverHealth,
 } from '../logic.js';
 import { h, enso, icon } from '../ui.js';
 import { currentBook, percent } from '../books.js';
@@ -166,10 +166,11 @@ export async function render(main, app) {
       return h('p', { class: 'feed-end meta', text: 'No articles' + name + ' yet.' });
     }
     // While the feed server is still doing its first pass, say how far along it is.
-    const expected = app.config.sources.filter((x) => x.feed).length;
-    const loaded = (cache.status || []).length;
-    const filling = expected && loaded < expected
-      ? h('p', { class: 'meta', text: `${loaded} of ${expected} sources loaded. The feed server adds one every couple of minutes.` })
+    const health = serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length);
+    const filling = health.expected && health.loaded < health.expected
+      ? h('p', { class: 'meta' + (health.stalled ? ' warn' : '') }, health.stalled
+        ? `${health.loaded} of ${health.expected} sources loaded. The feed server’s schedule doesn’t seem to be running, so Bonsai is loading them while the app is open. To fix it, see Library → Sources.`
+        : `${health.loaded} of ${health.expected} sources loaded. The rest are on their way.`)
       : null;
     return h('div', { class: 'feed-end' },
       h('p', { class: 'meta', role: 'status' },
@@ -238,7 +239,21 @@ export async function render(main, app) {
   if (app.feedScroll) { const y = app.feedScroll; app.onShown = () => window.scrollTo(0, y); }
   load(false);
 
+  // While sources are still missing, nudge the feed server about once a minute as long as the app
+  // is open (it refreshes whatever is due each time), and pick up what arrived.
+  const nudge = setInterval(async () => {
+    if (!s.feedUrl || loading || document.visibilityState !== 'visible' || !cache) return;
+    const health = serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length);
+    if (health.loaded >= health.expected) return;
+    try {
+      const r = await fetch(s.feedUrl.replace(/\/+$/, '') + '/refresh', { method: 'POST' });
+      const done = r.ok ? await r.json() : null;
+      if (done && Array.isArray(done.refreshed) && done.refreshed.length) load(true);
+    } catch { /* offline: try again next minute */ }
+  }, 65_000);
+
   return () => {
+    clearInterval(nudge);
     app.feedScroll = window.scrollY;
     watcher.disconnect();
     detachMenu();

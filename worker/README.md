@@ -5,10 +5,16 @@ them to the app. It runs on its own, separate from Side Quest's
 `aquamarine-data` worker, and holds no keys or passwords. It only reads public
 feeds.
 
-**How it works:** every 2 minutes it refreshes the one source that has waited
-longest, so each run stays inside the free plan’s CPU limit. With about 50
-sources, each one is refreshed roughly every 2 hours. `GET /feed` returns
-everything stored.
+**How it works:** every 2 minutes it refreshes every source that's due (never
+loaded, or over 2 hours old), a few at a time within a size budget so each run
+stays inside the free plan's CPU limit. A new install fills in within minutes;
+after that most runs refresh one source or none, which keeps KV writes around
+600 a day (the free plan allows 1,000). `GET /feed` returns everything stored.
+
+**Is it running?** Open `…workers.dev/health`. It shows how many sources are
+loaded, when the newest refresh happened, and how many are overdue. If `newest`
+is hours old, the Cron Trigger (step 5) isn't set. The app's Library screen
+shows the same warning.
 
 ## Deploy from the Cloudflare dashboard (no terminal, ~10 min)
 
@@ -59,10 +65,11 @@ npx wrangler deploy
 ## Endpoints
 
 - `GET /feed` → `{ updatedAt, sources: [{ id, meta: { fetchedAt, ok, count, hidden, error }, items: [...] }] }`
-- `POST /refresh` → refreshes the next source now (at most once a minute)
+- `POST /refresh` → refreshes whatever is due now, or the stalest source (at most once a minute).
+  The app calls this about once a minute while it's open and sources are missing.
 - `GET /epmc?path=…` → relays Europe PMC's search and `PMCxxxx/fullTextXML` (the app
   tries Europe PMC directly first; this is the fallback). Other paths are refused.
-- `GET /health` → `{ ok: true }`
+- `GET /health` → `{ ok, sources, loaded, newest, overdue }`
 
 `meta.hidden` counts posts dropped as paywalled (sources with `"hideLocked":
 true`). `meta.error` explains a failing feed, and the app's Library screen

@@ -48,12 +48,16 @@ globalThis.fetch = async (url) => {
 const ctx = { waitUntil: (p) => p };
 const run = async (env) => { await worker.scheduled({}, env, { waitUntil: (p) => (run.p = p) }); await run.p; };
 
-test('each run refreshes the longest-waiting source; /feed stitches them', async () => {
+// Make every stored source look older than the 2 h refresh age.
+async function age(env, ms = 3 * 3600e3) {
+  for (const [k, v] of env.FEEDS.m) if (k.startsWith('src:')) v.metadata = { ...v.metadata, fetchedAt: v.metadata.fetchedAt - ms };
+}
+
+test('first visit fills every due source at once; /feed stitches them', async () => {
   const env = { FEEDS: memKV() };
   const first = await (await worker.fetch(new Request('https://w.test/feed'), env, ctx)).json();
-  assert.equal(first.sources.length, 1, 'first visit fills one source');
-  await run(env); await run(env);
-  assert.deepEqual([...env.FEEDS.m.keys()].sort(), ['src:a', 'src:b', 'src:c']);
+  assert.equal(first.sources.length, 3, 'all three fetched on the first visit');
+  assert.deepEqual([...env.FEEDS.m.keys()].filter((k) => k.startsWith('src:')).sort(), ['src:a', 'src:b', 'src:c']);
 
   const res = await worker.fetch(new Request('https://w.test/feed'), env, ctx);
   assert.equal(res.headers.get('access-control-allow-origin'), 'https://atonioguy.github.io');
@@ -63,11 +67,23 @@ test('each run refreshes the longest-waiting source; /feed stitches them', async
   assert.equal(feed.status.find((s) => s.id === 'c').hidden, 2);
 });
 
+test('scheduled runs only refresh what is due (no wasted KV writes)', async () => {
+  const env = { FEEDS: memKV() };
+  await run(env);
+  const before = env.FEEDS.m.get('src:a').metadata.fetchedAt;
+  await run(env); // nothing is 2 h old yet
+  assert.equal(env.FEEDS.m.get('src:a').metadata.fetchedAt, before);
+  await age(env);
+  await run(env);
+  assert.ok(env.FEEDS.m.get('src:a').metadata.fetchedAt > before, 'refreshed once due');
+});
+
 test('a failing source keeps its last good items and reports the error', async () => {
   const env = { FEEDS: memKV() };
-  for (let i = 0; i < 3; i++) await run(env);
+  await run(env);
   broken = true;
-  for (let i = 0; i < 3; i++) await run(env);
+  await age(env);
+  await run(env);
   broken = false;
   const feed = normalizeFeed(await (await worker.fetch(new Request('https://w.test/feed'), env, ctx)).json());
   const b = feed.status.find((s) => s.id === 'b');
@@ -76,11 +92,21 @@ test('a failing source keeps its last good items and reports the error', async (
   assert.equal(feed.items.filter((i) => i.sourceId === 'b').length, 1);
 });
 
+test('/health reports how many sources are loaded and overdue', async () => {
+  const env = { FEEDS: memKV() };
+  let h = await (await worker.fetch(new Request('https://w.test/health'), env, ctx)).json();
+  assert.deepEqual([h.sources, h.loaded, h.overdue], [3, 0, 3]);
+  await run(env);
+  h = await (await worker.fetch(new Request('https://w.test/health'), env, ctx)).json();
+  assert.deepEqual([h.loaded, h.overdue], [3, 0]);
+  assert.ok(h.newest);
+});
+
 test('/refresh is rate-limited', async () => {
   const env = { FEEDS: memKV() };
   const a = await (await worker.fetch(new Request('https://w.test/refresh', { method: 'POST' }), env, ctx)).json();
   const b = await (await worker.fetch(new Request('https://w.test/refresh', { method: 'POST' }), env, ctx)).json();
-  assert.equal(a.refreshed, 'a');
+  assert.deepEqual(a.refreshed, ['a', 'b', 'c']);
   assert.equal(b.skipped, true);
 });
 
@@ -131,4 +157,22 @@ test('youtube:@handle is resolved once to the channel feed', async () => {
   assert.equal(await env.FEEDS.get('yt:@kurz'), 'UCsXVk37bltHxD1rDPwtNM8Q');
   const items = JSON.parse((await env.FEEDS.get('src:k')));
   assert.equal(items[0].videoId, 'abcDEF12345');
+});
+
+test('a run stops at its byte budget; the rest wait for the next run', async () => {
+  const env = { FEEDS: memKV() };
+  const saved = globalThis.fetch;
+  const big = '<rss><channel>' + '<item><title>t</title><link>https://x/1</link><description>' + 'x'.repeat(120000) + '</description></item>' + '</channel></rss>';
+  globalThis.fetch = async (u) => {
+    u = String(u);
+    if (u.endsWith('sources.json')) return new Response(JSON.stringify({ sources: ['p', 'q', 'r', 's'].map((id) => ({ id, name: id, topic: 't', feed: 'https://' + id + '.test/' })) }));
+    return new Response(big);
+  };
+  await run(env);
+  const after1 = [...env.FEEDS.m.keys()].filter((k) => k.startsWith('src:')).length;
+  await run(env);
+  const after2 = [...env.FEEDS.m.keys()].filter((k) => k.startsWith('src:')).length;
+  globalThis.fetch = saved;
+  assert.equal(after1, 3, '3 x ~120 KB crosses the 300 KB budget');
+  assert.equal(after2, 4);
 });

@@ -458,6 +458,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.goto(BASE + '#/library');
   await page.waitForSelector('.row-title');
   await shot('15-dark-library');
+  check((await page.textContent('main')).includes('Trigger events'), 'Library explains a stalled feed server');
   await page.evaluate(() => localStorage.setItem('bonsai-theme', 'system'));
 
   check(errors.length === 0, `console errors @${w}: ${errors.join(' | ')}`);
