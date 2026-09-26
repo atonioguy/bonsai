@@ -9,9 +9,8 @@ the "Local (circle back)" / "Next" notes).
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
   its Cron Trigger is running (the owner confirmed sources now load on their
-  own). The owner was asked to change the cron from `*/2 * * * *` to
-  `*/5 * * * *` (KV list limit). If unsure it's done, ask them to check
-  bonsai-feeds → Settings → Trigger Events. `/health` shows whether it's
+  own). The cron is `*/5 * * * *` (the owner confirmed the change from
+  `*/2`, made to stay under the KV list limit). `/health` shows whether it's
   running.
 - The deployed worker code matches `worker/bonsai-feeds.js` as of v0.6.1. Later
   versions changed only a comment in it, so no re-paste is needed.
