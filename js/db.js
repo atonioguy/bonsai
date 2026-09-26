@@ -2,8 +2,9 @@
 // Stores: kv (settings, feed cache…), books, progress, saved, sessions.
 
 const NAME = 'bonsai';
-const VERSION = 1;
-const STORES = ['kv', 'books', 'progress', 'saved', 'sessions'];
+const VERSION = 2;
+// v2: `posts` — your state per article (snapshot, opened, scroll, bookmark, reading list, notes).
+const STORES = ['kv', 'books', 'progress', 'saved', 'sessions', 'posts'];
 
 let dbp = null;
 function open() {

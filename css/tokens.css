@@ -61,6 +61,9 @@
   --nav-h: 64px;
   --bar-h: 56px;
 
+  /* reading text size (Aa control; set on <html> by prefs.js) */
+  --read-scale: 1;
+
   /* motion */
   --dur-1: 120ms;
   --dur-2: 200ms;

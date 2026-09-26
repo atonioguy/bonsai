@@ -1,7 +1,11 @@
 import * as db from '../db.js';
-import { mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, SESSION_CHOICES } from '../logic.js';
-import { h, enso } from '../ui.js';
+import {
+  mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, SESSION_CHOICES,
+  dueListed, afterListShown, newCounts, splitNew,
+} from '../logic.js';
+import { h, enso, icon } from '../ui.js';
 import { currentBook, percent } from '../books.js';
+import { openedMap, seenMap, markSeen, allPosts, savePost } from '../posts.js';
 
 const STALE = 10 * 60_000; // refetch the feed when the cached copy is older than this
 
@@ -12,43 +16,96 @@ export async function render(main, app) {
 
   const tabs = h('div', { class: 'tabs', role: 'group', 'aria-label': 'Topics' });
   const list = h('div', { class: 'feed' });
-  main.append(h('h1', { class: 'visually-hidden', text: 'Feed' }), tabs, list);
+  const pill = h('button', { type: 'button', class: 'new-pill', hidden: true, onclick: () => {
+    pill.hidden = true;
+    draw();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } });
+  main.append(h('h1', { class: 'visually-hidden', text: 'Feed' }), tabs, pill, list);
 
   const topics = [{ id: 'all', name: 'All' }, ...app.config.topics];
   if (!topics.some((t) => t.id === app.topic)) app.topic = 'all';
-  for (const t of topics) {
+  const tabEls = topics.map((t) => {
+    const count = h('span', { class: 'tab-count' });
     const tab = h('button', {
-      type: 'button', class: 'tab', 'aria-pressed': String(app.topic === t.id),
+      type: 'button', class: 'tab', 'aria-pressed': String(app.topic === t.id), 'data-topic': t.id,
       onclick: () => {
         app.topic = t.id;
         tabs.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-pressed', String(b === tab)));
+        pill.hidden = true;
         draw();
       },
-    }, t.name);
+    }, h('span', { text: t.name }), count);
+    tab._name = t.name;
+    tab._count = count;
     tabs.appendChild(tab);
-  }
+    return tab;
+  });
 
-  const [book, saved] = await Promise.all([currentBook(), db.all('saved')]);
+  const [book, saved, posts, opened] = await Promise.all([currentBook(), db.all('saved'), allPosts(), openedMap()]);
   const throwbacks = dueThrowbacks(saved, Date.now(), 3);
+  const listed = dueListed(posts, Date.now(), 2);
+  let seen = await seenMap();
   let loading = false, error = '';
 
-  const seen = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      if (!e.isIntersecting) continue;
-      seen.unobserve(e.target);
-      const entry = throwbacks.find((t) => t.id === e.target.dataset.id);
-      if (entry) db.put('saved', entry.id, afterShown(entry));
+  // First run with "new" tracking: everything already here counts as seen, so it doesn't open on "240 new".
+  async function initSeen() {
+    if (seen || !cache) return;
+    seen = {};
+    for (const i of cache.items) seen[i.id] = 1;
+    await markSeen(cache.items.map((i) => i.id));
+  }
+
+  function paintCounts() {
+    const { all, byTopic } = cache && seen ? newCounts(cache.items, seen, muted) : { all: 0, byTopic: {} };
+    for (const tab of tabEls) {
+      const n = tab.dataset.topic === 'all' ? all : byTopic[tab.dataset.topic] || 0;
+      tab._count.textContent = n ? String(n) : '';
+      tab.setAttribute('aria-label', n ? `${tab._name}, ${n} new` : tab._name);
     }
+  }
+
+  // Cards the user actually scrolled past: entries become "seen", your own cards move on.
+  let pendingSeen = [], seenTimer = null;
+  const watcher = new IntersectionObserver((records) => {
+    for (const r of records) {
+      if (!r.isIntersecting) continue;
+      watcher.unobserve(r.target);
+      const id = r.target.dataset.id;
+      if (r.target.classList.contains('entry')) {
+        if (seen && !seen[id]) { seen[id] = Date.now(); pendingSeen.push(id); }
+      } else if (r.target.classList.contains('throwback')) {
+        const entry = throwbacks.find((t) => t.id === id);
+        if (entry) db.put('saved', entry.id, afterShown(entry));
+      } else if (r.target.classList.contains('listed')) {
+        const p = listed.find((x) => x.id === id);
+        if (p) savePost({ ...p, list: afterListShown(p.list) });
+      }
+    }
+    clearTimeout(seenTimer);
+    seenTimer = setTimeout(() => { markSeen(pendingSeen.splice(0)); paintCounts(); }, 400);
   }, { threshold: 0.6 });
 
   function draw() {
-    seen.disconnect();
-    const entries = cache ? mixFeed(cache.items, { topic: app.topic, muted }) : [];
-    const all = app.topic === 'all'; // the book card and throwbacks belong to the main mix only
-    const cards = composeFeed(entries, { book: all ? book : null, throwbacks: all ? throwbacks : [] });
-    list.replaceChildren(...cards.map((c) => (c.type === 'entry' ? entryEl(c.data) : c.type === 'book' ? bookEl(c.data, s) : throwbackEl(c.data))));
-    list.querySelectorAll('.throwback').forEach((el) => seen.observe(el));
+    watcher.disconnect();
+    const mixed = cache ? mixFeed(cache.items, { topic: app.topic, muted }) : [];
+    const { fresh, older } = splitNew(mixed, seen);
+    const entries = [...fresh, ...older];
+    const all = app.topic === 'all'; // the book card and your own cards belong to the main mix only
+    const cards = composeFeed(entries, { book: all ? book : null, throwbacks: all ? throwbacks : [], listed: all ? listed : [] });
+    if (fresh.length && older.length) {
+      const at = cards.findIndex((c) => c.type === 'entry' && c.data === older[0]);
+      cards.splice(at, 0, { type: 'divider' });
+    }
+    list.replaceChildren(...cards.map((c) => (
+      c.type === 'entry' ? entryEl(c.data, opened[c.data.id])
+        : c.type === 'book' ? bookEl(c.data, s)
+          : c.type === 'listed' ? listedEl(c.data)
+            : c.type === 'divider' ? h('div', { class: 'earlier', role: 'separator' }, h('span', { text: 'Earlier' }))
+              : throwbackEl(c.data))));
+    list.querySelectorAll('.entry, .throwback, .listed').forEach((el) => watcher.observe(el));
     list.appendChild(endEl(entries.length));
+    paintCounts();
   }
 
   function endEl(count) {
@@ -85,7 +142,10 @@ export async function render(main, app) {
   async function load(force) {
     if (!s.feedUrl || loading) return;
     if (!force && cache && Date.now() - (cache.fetchedAt || 0) < STALE) return;
-    loading = true; error = ''; draw();
+    loading = true; error = '';
+    // Only the status line changes while loading; redrawing the list would lose your place.
+    if (list.querySelector('.entry')) list.lastChild.replaceWith(endEl(list.querySelectorAll('.entry').length));
+    else draw();
     try {
       const base = s.feedUrl.replace(/\/+$/, '');
       if (force) await fetch(base + '/refresh', { method: 'POST' }).catch(() => {});
@@ -93,28 +153,43 @@ export async function render(main, app) {
       if (!r.ok) throw new Error('The feed server answered ' + r.status + '.');
       cache = { ...normalizeFeed(await r.json()), fetchedAt: Date.now() };
       await db.put('kv', 'feed', cache);
+      await initSeen();
     } catch (e) {
       error = e instanceof TypeError ? 'The feed server couldn’t be reached.' : e.message;
     }
     loading = false;
     const atTop = window.scrollY < 200;
     if (atTop || !list.querySelector('.entry')) draw();
-    else list.lastChild.replaceWith(endEl(list.querySelectorAll('.entry').length));
+    else {
+      // Reading further down: don't move things; offer the new ones instead.
+      list.lastChild.replaceWith(endEl(list.querySelectorAll('.entry').length));
+      paintCounts();
+      const shown = new Set([...list.querySelectorAll('.entry')].map((e) => e.dataset.id));
+      const waiting = mixFeed(cache?.items || [], { topic: app.topic, muted }).filter((i) => !seen?.[i.id] && !shown.has(i.id)).length;
+      if (waiting) {
+        pill.replaceChildren(icon('back', 18), h('span', { text: waiting === 1 ? '1 new article' : waiting + ' new articles' }));
+        pill.hidden = false;
+      }
+    }
   }
 
+  await initSeen();
   draw();
   if (app.feedScroll) requestAnimationFrame(() => window.scrollTo(0, app.feedScroll));
   load(false);
 
   return () => {
     app.feedScroll = window.scrollY;
-    seen.disconnect();
+    watcher.disconnect();
+    clearTimeout(seenTimer);
+    if (pendingSeen.length) markSeen(pendingSeen.splice(0));
   };
 }
 
-function entryEl(item) {
-  const meta = [item.kind === 'audio' ? 'Audio' : null, item.sourceName, relTime(item.published)].filter(Boolean).join(' · ');
-  return h('article', { class: 'entry' },
+// Opened articles are quieter, and say so in words (never color alone).
+function entryEl(item, openedAt) {
+  const meta = [item.kind === 'audio' ? 'Audio' : null, item.sourceName, relTime(item.published), openedAt ? 'Opened' : null].filter(Boolean).join(' · ');
+  return h('article', { class: 'entry' + (openedAt ? ' is-read' : ''), 'data-id': item.id },
     h('p', { class: 'meta', text: meta }),
     h('h2', { class: 'entry-title' }, h('a', { href: '#/item/' + encodeURIComponent(item.id) }, item.title)),
     item.excerpt && item.excerpt !== item.title ? h('p', { class: 'entry-excerpt', text: item.excerpt }) : null);
@@ -147,6 +222,16 @@ function bookEl({ meta, f }, s) {
       h('div', { class: 'book-buttons' },
         start,
         h('a', { class: 'btn btn-secondary', href: '#/read/' + meta.id + '/free' }, 'Free read'))));
+}
+
+// A reading-list article coming back around.
+function listedEl(post) {
+  const it = post.item;
+  const where = post.scroll > 0.02 ? Math.round(post.scroll * 100) + '% read' : 'Not started';
+  return h('aside', { class: 'listed', 'data-id': post.id, 'aria-label': 'From your reading list' },
+    h('p', { class: 'meta', text: 'From your reading list · added ' + relTime(post.list.addedAt) }),
+    h('h2', { class: 'entry-title' }, h('a', { href: '#/item/' + encodeURIComponent(post.id) }, it.title)),
+    h('p', { class: 'meta', text: [it.sourceName, where].filter(Boolean).join(' · ') }));
 }
 
 export function throwbackEl(entry) {

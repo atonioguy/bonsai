@@ -33,7 +33,7 @@ for (let i = 0; i < 9; i++) {
     title: `Sample article ${i + 1}: a longer headline to check how titles wrap across lines`,
     url: 'https://example.org/sample/' + i, published: iso(30 + i * 9),
     excerpt: 'This is placeholder summary text for layout testing. It runs long enough to be clamped at three lines on a phone so the feed rhythm can be judged properly.',
-    html: '<p>' + 'Placeholder paragraph for layout testing. '.repeat(12) + '</p><p>' + 'A second placeholder paragraph. '.repeat(10) + '</p>',
+    html: ('<p>' + 'Placeholder paragraph for layout testing. '.repeat(12) + '</p>').repeat(12),
     audioUrl: '', image: '',
   });
 }
@@ -102,7 +102,7 @@ const browser = await chromium.launch();
 let focusPosts = 0;
 
 for (const [w, hgt] of [[375, 812], [1280, 860]]) {
-  const ctx = await browser.newContext({ viewport: { width: w, height: hgt }, deviceScaleFactor: 2 });
+  const ctx = await browser.newContext({ viewport: { width: w, height: hgt }, deviceScaleFactor: 2, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -186,6 +186,101 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.click('.selbar button');
   await page.waitForSelector('.toast.show');
 
+  // 5b. article tools: text size, share, reading list, bookmark + folder, reaction, note
+  await page.goto(BASE + '#/item/gen0');
+  await page.waitForSelector('.article-bar');
+  await page.click('[aria-label="Text and theme"]');
+  await page.click('[aria-label="Larger text"]');
+  await page.click('[aria-label="Larger text"]');
+  check((await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--read-scale').trim())) === '1.25', 'text size grows');
+  await shot('06b-article-tools');
+  await page.keyboard.press('Escape');
+  await page.click('[aria-label="Smaller text"]').catch(() => {});
+  await page.evaluate(() => Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }));
+  await page.click('[aria-label="Share"]');
+  await page.waitForSelector('.toast.show:has-text("Link copied")');
+  check((await page.evaluate(() => navigator.clipboard.readText())) === 'https://example.org/sample/0', 'share copies the link');
+  await page.click('[aria-label="Add to reading list"]');
+  check(await page.waitForSelector('[aria-label="Remove from reading list"][aria-pressed="true"]', { timeout: 3000 }).catch(() => null), 'added to reading list');
+  await page.click('[aria-label="Bookmark"]');
+  await page.click('.toast button:has-text("Add to folder")');
+  await page.waitForSelector('dialog.sheet[open]');
+  await page.fill('#new-folder', 'Psych reads');
+  await page.click('dialog.sheet button:has-text("Add")');
+  await page.waitForSelector('dialog.sheet input[type=checkbox]:checked');
+  await shot('06c-bookmark-sheet');
+  await page.click('dialog.sheet button:has-text("Done")');
+  await page.click('.reaction:has-text("Made me think")');
+  check(await page.waitForSelector('.reaction[aria-pressed="true"]:has-text("Made me think")', { timeout: 3000 }).catch(() => null), 'reaction set');
+  await page.fill('#note', 'Compare with the ADHD review.');
+  await page.click('.note-form button[type=submit]');
+  check(await page.waitForSelector('.note', { timeout: 3000 }).catch(() => null), 'note posted');
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  await page.waitForTimeout(900);
+  await shot('06d-article-end');
+
+  // your place is kept: leave and come back
+  const before = await page.evaluate(() => location.hash);
+  await page.click('[aria-label="Back"]');
+  await page.waitForFunction((h) => location.hash !== h, before);
+  check((await page.evaluate(() => location.hash)).startsWith('#/item/'), 'Back returns to the previous screen');
+  await page.goto(BASE + '#/');
+  await page.waitForSelector('.entry');
+  await page.goto(BASE + '#/item/gen0');
+  await page.waitForSelector('.article-title');
+  await page.waitForTimeout(300);
+  check((await page.evaluate(() => window.scrollY)) > 600, 'scroll position restored');
+
+  // Recent drawer
+  await page.click('[aria-label="Recently opened"]');
+  await page.waitForSelector('dialog.drawer[open]');
+  check((await page.$$('.drawer-row')).length >= 2, 'recent lists opened posts');
+  await shot('06e-recent');
+  await page.keyboard.press('Escape');
+
+  // feed: opened posts marked; new posts counted per tab + button when scrolled
+  await page.goto(BASE + '#/');
+  await page.waitForSelector('.entry');
+  check(await page.$('.entry.is-read'), 'opened post marked read');
+  for (let i = 0; i < 3; i++) {
+    FEED.items.push({ ...FEED.items.at(-1), id: `new${w}-${i}`, sourceId: 'gen-0', topic: 'mind', title: 'New sample ' + i, published: new Date().toISOString() });
+  }
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.click('.feed-end button:has-text("Refresh")');
+  await page.waitForSelector('.new-pill:not([hidden])');
+  check((await page.textContent('.new-pill')).includes('3 new articles'), 'new articles button');
+  check((await page.textContent('.tab[data-topic="mind"] .tab-count')) === '3', 'per-topic new count');
+  await shot('05b-new-pill');
+  await page.click('.new-pill');
+  await page.waitForSelector('.earlier');
+  check((await page.textContent('.entry-title')).startsWith('New sample'), 'new posts on top');
+  await shot('05c-new-top');
+
+  // reading list item comes back into the feed when due, and leaves only when you say so
+  await page.evaluate(async () => {
+    const db = await import('/js/db.js');
+    const p = await db.get('posts', 'gen0');
+    p.list.dueAt = Date.now() - 1000;
+    await db.put('posts', 'gen0', p);
+  });
+  await page.goto(BASE + '#/saved');
+  await page.goto(BASE + '#/');
+  await page.waitForSelector('.listed');
+  await page.goto(BASE + '#/saved/list');
+  await page.waitForSelector('.post-row');
+  await shot('10b-reading-list');
+  await page.goto(BASE + '#/saved/bookmarks');
+  await page.waitForSelector('.folder-row:has-text("Psych reads")');
+  check((await page.textContent('.folder-row:has-text("Psych reads") .meta')) === '1', 'folder count');
+  await shot('10c-bookmarks');
+  await page.click('.folder-row:has-text("Psych reads")');
+  await page.waitForSelector('.post-row');
+  await shot('10d-folder');
+  await page.goto(BASE + '#/item/gen0');
+  await page.click('button:has-text("Done, remove it")');
+  await page.waitForTimeout(200);
+  check(!(await dbCall('get', 'posts', 'gen0')).list, 'removed from reading list at the end');
+
   // 6. book card: pick a length, then a timed session (3 s via the route, for the test)
   await page.goto(BASE + '#/');
   await page.waitForSelector('.book-card .segmented');
@@ -220,8 +315,8 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.fill('#takeaway', 'My one-line takeaway.');
   await page.click('.complete button[type=submit]');
 
-  // 7. saved
-  await page.goto(BASE + '#/saved');
+  // 7. saved quotes
+  await page.goto(BASE + '#/saved/quotes');
   await page.waitForSelector('.saved-item');
   check((await page.$$('.saved-item')).length === 3, 'three saved entries');
   await shot('10-saved');
@@ -239,9 +334,12 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.click('.entry-title a');
   await page.waitForSelector('.article-title');
   await shot('13-dark-article');
-  await page.goto(BASE + '#/saved');
+  await page.goto(BASE + '#/saved/quotes');
   await page.waitForSelector('.saved-item');
   await shot('14-dark-saved');
+  await page.goto(BASE + '#/item/gen0');
+  await page.waitForSelector('.article-bar');
+  await shot('16-dark-article-tools');
   await page.goto(BASE + '#/library');
   await page.waitForSelector('.row-title');
   await shot('15-dark-library');

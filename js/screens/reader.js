@@ -4,6 +4,7 @@ import { h, icon, enso, setEnso, svg, TREE_MARK } from '../ui.js';
 import { bookIndex, progress, saveProgress, fraction, percent } from '../books.js';
 import { attachSaveQuote } from '../selection.js';
 import { logSession, isConnected } from '../sidequest.js';
+import { readControls } from '../readtools.js';
 
 const IDLE = 90_000;       // no input for this long pauses the clock
 const MIN_KEEP = 60;       // sessions shorter than this aren't recorded at all
@@ -52,11 +53,14 @@ export async function render(main, app, bookId, modeParam = 'free') {
   const ring = free ? null : enso(0, 32);
   const timeText = h('span', { class: 'time' });
   const doneBtn = free ? h('button', { type: 'button', class: 'btn btn-text', onclick: () => finish() }, 'Done') : null;
+  const tools = readControls();
   const bar = h('header', { class: 'reader-bar' },
     h('a', { class: 'btn-icon', href: '#/', 'aria-label': 'Close book' }, icon('back')),
     h('span', { class: 'title', text: meta.title }),
     timeText,
-    ring || doneBtn);
+    ring || doneBtn,
+    tools.button,
+    tools.panel);
 
   function paintClock() {
     if (free) {
@@ -193,6 +197,7 @@ export async function render(main, app, bookId, modeParam = 'free') {
     clearTimeout(saveTimer);
     window.removeEventListener('scroll', onScroll);
     document.removeEventListener('visibilitychange', onHide);
+    tools.detach();
     inputs.forEach((e) => window.removeEventListener(e, touch));
     if (detachQuote) detachQuote();
     // Leaving mid-read: a free read still counts (and is sent); an unfinished timed one doesn't.

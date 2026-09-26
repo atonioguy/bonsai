@@ -1,6 +1,7 @@
 import * as db from '../db.js';
-import { h, toast } from '../ui.js';
-import { VERSION, themeChoice, setTheme } from '../app.js';
+import { h, toast, avatarEl, AVATARS } from '../ui.js';
+import { VERSION } from '../app.js';
+import { themeChoice, setTheme } from '../prefs.js';
 
 export async function render(main, app) {
   const s = app.settings;
@@ -30,6 +31,34 @@ export async function render(main, app) {
     field('sq-key', 'Key', sqKey, 'The same AQ_KEY Side Quest uses. It stays on this device.')),
   h('div', {}, h('button', { type: 'submit', class: 'btn btn-primary' }, 'Save')));
 
+  // ---------- profile: your name and avatar on notes (only on this device) ----------
+  let profile = (await db.get('kv', 'profile')) || {};
+  const saveProfile = async (patch) => { profile = { ...profile, ...patch }; await db.put('kv', 'profile', profile); paintAvatars(); };
+  const name = h('input', { class: 'input', id: 'profile-name', type: 'text', maxlength: '40', autocomplete: 'nickname', value: profile.name || '' });
+  name.addEventListener('change', () => saveProfile({ name: name.value.trim() }));
+  const avatars = h('div', { class: 'avatar-grid', role: 'group', 'aria-label': 'Avatar' });
+  const photoInput = h('input', { class: 'file-input', id: 'photo', type: 'file', accept: 'image/*' });
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    try { await saveProfile({ photo: await squarePhoto(file, 160) }); } catch { toast('Couldn’t use that photo'); }
+    photoInput.value = '';
+  });
+  function paintAvatars() {
+    avatars.replaceChildren(...Object.keys(AVATARS).map((key) => h('button', {
+      type: 'button', class: 'avatar-choice', 'aria-label': 'Avatar: ' + key,
+      'aria-pressed': String(!profile.photo && (profile.avatar || 'bonsai') === key),
+      onclick: () => saveProfile({ avatar: key, photo: null }),
+    }, avatarEl({ avatar: key }, 44))),
+    profile.photo ? h('button', { type: 'button', class: 'avatar-choice', 'aria-label': 'Avatar: your photo', 'aria-pressed': 'true' }, avatarEl(profile, 44)) : null);
+  }
+  paintAvatars();
+  const profileSec = h('section', { class: 'fieldset', 'aria-labelledby': 'set-profile' },
+    h('h2', { class: 'section-title', id: 'set-profile', text: 'Profile' }),
+    field('profile-name', 'Name', name, 'Shown on your notes. Stays on this device.'),
+    h('div', { class: 'field' }, h('span', { class: 'label', text: 'Avatar' }), avatars,
+      h('div', {}, photoInput, h('label', { for: 'photo', class: 'btn btn-secondary' }, 'Use a photo'))));
+
   // ---------- appearance (applies at once, stored on this device) ----------
   const theme = h('select', { class: 'input', id: 'theme' },
     [['system', 'Match phone'], ['light', 'Light'], ['dark', 'Dark']].map(([v, label]) => h('option', { value: v, selected: themeChoice() === v }, label)));
@@ -47,10 +76,11 @@ export async function render(main, app) {
       const data = JSON.parse(await file.text());
       if (data.app !== 'bonsai') throw new Error('Not a Bonsai backup');
       if (!confirm('Replace saved quotes, reading progress and settings with this backup?')) return;
-      for (const store of ['saved', 'progress', 'sessions']) {
+      for (const store of ['saved', 'progress', 'sessions', 'posts']) {
         await db.clear(store);
         for (const [k, v] of Object.entries(data[store] || {})) await db.put(store, k, v);
       }
+      for (const k of ['folders', 'opened', 'profile']) if (data[k]) await db.put('kv', k, data[k]);
       if (data.settings) app.settings = await db.saveSettings({ ...data.settings, sqKey: data.settings.sqKey || app.settings.sqKey });
       toast('Backup restored');
       main.replaceChildren();
@@ -63,7 +93,7 @@ export async function render(main, app) {
 
   const backup = h('section', { class: 'section', 'aria-labelledby': 'set-backup' },
     h('h2', { class: 'section-title', id: 'set-backup', text: 'Backup' }),
-    h('p', { class: 'hint', style: 'margin-bottom: var(--s-4)', text: 'Everything is stored on this device. A backup has your saved quotes, reading progress and settings. It leaves out books and the Side Quest key.' }),
+    h('p', { class: 'hint', style: 'margin-bottom: var(--s-4)', text: 'Everything is stored on this device. A backup has your bookmarks, reading list, notes, quotes, reading progress and settings. It leaves out books and the Side Quest key.' }),
     h('div', { style: 'display: flex; flex-wrap: wrap; gap: var(--s-3)' },
       h('button', { type: 'button', class: 'btn btn-secondary', onclick: exportBackup }, 'Export'),
       importInput,
@@ -71,7 +101,8 @@ export async function render(main, app) {
 
   main.append(
     h('h1', { class: 'screen-title', text: 'Settings' }),
-    appearance,
+    profileSec,
+    h('div', { class: 'section' }, appearance),
     h('div', { class: 'section' }, form),
     backup,
     h('p', { class: 'meta section', text: 'Bonsai ' + VERSION }));
@@ -91,6 +122,8 @@ async function exportBackup() {
     app: 'bonsai', version: 1, exportedAt: new Date().toISOString(),
     settings: { ...(await db.settings()), sqKey: '' }, // the Side Quest key is never written to a file
     saved: await dump('saved'), progress: await dump('progress'), sessions: await dump('sessions'),
+    posts: await dump('posts'),
+    folders: await db.get('kv', 'folders'), opened: await db.get('kv', 'opened'), profile: await db.get('kv', 'profile'),
     bookIndex: await db.get('kv', 'bookIndex'),
   };
   const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
@@ -98,4 +131,14 @@ async function exportBackup() {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+// A centered square crop, scaled down, as a small JPEG data URL.
+async function squarePhoto(file, size) {
+  const img = await createImageBitmap(file);
+  const side = Math.min(img.width, img.height);
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+  return c.toDataURL('image/jpeg', 0.85);
 }

@@ -29,6 +29,46 @@ export function afterShown(s, now = Date.now()) {
   return { ...s, stage, shownAt: now, dueAt: now + THROWBACK_DAYS[stage] * DAY };
 }
 
+// ---------- reading list ----------
+// Queued articles come back into the feed on a widening schedule until you remove them
+// (you're asked at the end of the article).
+export const LIST_DAYS = [1, 3, 7, 14, 30];
+
+export function newListEntry(now = Date.now()) {
+  return { addedAt: now, stage: 0, dueAt: now + LIST_DAYS[0] * DAY };
+}
+
+export function dueListed(posts, now = Date.now(), max = 2) {
+  return posts
+    .filter((p) => p.list && p.list.dueAt <= now)
+    .sort((a, b) => a.list.dueAt - b.list.dueAt)
+    .slice(0, max);
+}
+
+export function afterListShown(list, now = Date.now()) {
+  const stage = Math.min(list.stage + 1, LIST_DAYS.length - 1);
+  return { ...list, stage, dueAt: now + LIST_DAYS[stage] * DAY };
+}
+
+// ---------- new (not yet seen) items ----------
+export function newCounts(items, seen, muted = new Set()) {
+  const byTopic = {};
+  let all = 0;
+  for (const i of items) {
+    if (muted.has(i.sourceId) || (seen && seen[i.id])) continue;
+    all++;
+    byTopic[i.topic] = (byTopic[i.topic] || 0) + 1;
+  }
+  return { all, byTopic };
+}
+
+// New items first, then the ones already seen (the feed puts an "Earlier" line between).
+export function splitNew(entries, seen) {
+  const fresh = [], older = [];
+  for (const e of entries) (seen && seen[e.id] ? older : fresh).push(e);
+  return { fresh, older };
+}
+
 // ---------- reading sessions ----------
 // Timed sessions are a challenge: only a finished one counts. A free read counts whatever
 // was read, and goes to Side Quest as a stopwatch record (Side Quest: 1 tomato per 25 min,
@@ -82,14 +122,17 @@ export function mixFeed(items, { topic = 'all', muted = new Set(), limit = 80 } 
  * Interleave the extra cards: the book card second, a throwback after every `every` entries.
  * Returns [{type:'entry'|'book'|'throwback', data}]
  */
-export function composeFeed(entries, { book = null, throwbacks = [], every = 6 } = {}) {
+export function composeFeed(entries, { book = null, throwbacks = [], listed = [], every = 6 } = {}) {
   const out = entries.map((data) => ({ type: 'entry', data }));
-  let t = 0;
-  for (let i = every; i <= out.length && t < throwbacks.length; i += every + 1) {
-    out.splice(i, 0, { type: 'throwback', data: throwbacks[t++] });
+  // Your own things (reading list first, then throwbacks) take turns in the gaps.
+  const extras = [];
+  for (let i = 0; i < Math.max(listed.length, throwbacks.length); i++) {
+    if (listed[i]) extras.push({ type: 'listed', data: listed[i] });
+    if (throwbacks[i]) extras.push({ type: 'throwback', data: throwbacks[i] });
   }
-  // a short feed still shows due throwbacks, at the end
-  while (t < throwbacks.length) out.push({ type: 'throwback', data: throwbacks[t++] });
+  let t = 0;
+  for (let i = every; i <= out.length && t < extras.length; i += every + 1) out.splice(i, 0, extras[t++]);
+  while (t < extras.length) out.push(extras[t++]); // a short feed still shows them, at the end
   if (book) out.splice(Math.min(1, out.length), 0, { type: 'book', data: book });
   return out;
 }

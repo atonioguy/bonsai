@@ -93,3 +93,31 @@ test('finalizeStale closes abandoned sessions: free counts, unfinished timed doe
   assert.deepEqual([t.open, t.complete], [false, false]);
   assert.equal(finalizeStale({ ...base, open: false, mode: 'free' }, T0 + 3600e3), null);
 });
+
+import { LIST_DAYS, newListEntry, dueListed, afterListShown, newCounts, splitNew } from '../js/logic.js';
+
+test('reading list: due after a day, then further out each time it shows', () => {
+  const l = newListEntry(T0);
+  assert.equal(l.dueAt, T0 + LIST_DAYS[0] * DAY);
+  const posts = [{ id: 'a', list: l }, { id: 'b', list: null }, { id: 'c', list: { ...l, dueAt: T0 - 5 } }];
+  assert.deepEqual(dueListed(posts, T0 + DAY).map((p) => p.id), ['c', 'a']);
+  assert.deepEqual(dueListed(posts, T0).map((p) => p.id), ['c']);
+  let x = l;
+  for (let i = 0; i < 8; i++) x = afterListShown(x, T0);
+  assert.equal(x.stage, LIST_DAYS.length - 1);
+  assert.equal(x.dueAt, T0 + LIST_DAYS.at(-1) * DAY);
+});
+
+test('newCounts and splitNew', () => {
+  const items = [{ id: '1', topic: 'mind', sourceId: 'a' }, { id: '2', topic: 'mind', sourceId: 'b' }, { id: '3', topic: 'tao', sourceId: 'a' }, { id: '4', topic: 'tao', sourceId: 'm' }];
+  const seen = { 1: 1 };
+  assert.deepEqual(newCounts(items, seen, new Set(['m'])), { all: 2, byTopic: { mind: 1, tao: 1 } });
+  const { fresh, older } = splitNew(items, seen);
+  assert.deepEqual([fresh.map((i) => i.id), older.map((i) => i.id)], [['2', '3', '4'], ['1']]);
+});
+
+test('composeFeed: reading-list items and throwbacks take turns', () => {
+  const entries = Array.from({ length: 20 }, (_, i) => ({ id: 'e' + i }));
+  const out = composeFeed(entries, { listed: [{ id: 'l1' }], throwbacks: [{ id: 't1' }, { id: 't2' }] });
+  assert.deepEqual(out.filter((x) => x.type !== 'entry').map((x) => x.data.id), ['l1', 't1', 't2']);
+});
