@@ -5,9 +5,9 @@ cards, an endless scroll, something new every time) but fills the feed with
 research, essays, history, audio and your own books. The scroll should leave you
 knowing more instead of feeling worse.
 
-Status: **v0.1 built, not deployed yet.** Steps 1–7 of the build order below
-are in the code and pass the tests. Going live needs two owner steps (see
-"Going live"). The first design canvas is at
+Status: **live at v0.7.0** (https://atonioguy.github.io/bonsai/, with the
+`bonsai-feeds` worker on Cloudflare). The build log below lists what's in; see
+HANDOFF.md for what's still unconfirmed on the phone. The first design canvas is at
 https://claude.ai/artifact/LMQpZUb8NpK9yZCU77PUkx (private to the owner). The
 built app follows `DESIGN.md`, which supersedes that mockup's rounder cards and
 branded copy.
@@ -78,7 +78,7 @@ scroll end when you want it to.
 | Piece | Where | Notes |
 |------|------|------|
 | App (HTML/CSS/JS, PWA) | GitHub Pages, this repo | `atonioguy.github.io/bonsai`. No build step to start. |
-| Feed worker `bonsai-feeds` | Cloudflare (free plan) | Every 5 minutes refreshes the sources from `sources.json` that are over 2 h old, within a size budget (free-plan CPU and KV limits), stores cards in KV and serves `/feed`. Drops paywalled posts for sources marked `hideLocked`. Browsers can't fetch most feeds directly (CORS), so this is required. Holds no personal keys. |
+| Feed worker `bonsai-feeds` | Cloudflare (free plan) | Every 5 minutes refreshes the sources from `sources.json` that are over 2 h old, within a size budget (free-plan CPU and KV limits), stores cards in KV and serves `/feed`. Drops paywalled posts for sources marked `hideLocked`. Looks up each long YouTube video's length once. Browsers can't fetch most feeds directly (CORS), so this is required. Holds no personal keys. |
 | Books, leaves, reading progress | On the phone (IndexedDB) | Private. Books are **never** committed: the repo is public. |
 | Side Quest bridge | Existing `aquamarine-data` worker | Only `POST /focus`. |
 
@@ -143,8 +143,8 @@ takeaways.
 ## Build order (first version)
 
 1. ✅ App shell: Feed, Library, Saved and Settings; installable PWA; tokens.
-2. ✅ `bonsai-feeds` worker: fetches `sources.json` feeds every 2 h and
-   serves `/feed`.
+2. ✅ `bonsai-feeds` worker: fetches `sources.json` feeds and serves `/feed`
+   (now: runs every 5 minutes, refreshing sources over 2 h old).
 3. ✅ Feed: entries, topic filter, article view, "Open original", audio player.
 4. ✅ Books: EPUB upload, reader with the ensō session timer, progress saved.
 5. ✅ Saved quotes and throwbacks: select to save, resurfacing schedule.
@@ -199,6 +199,17 @@ takeaways.
     (glasses) and Hide (crossed-out eye); holding a post never selects its
     text (the preview opens instead).
 
+15. ✅ v0.7: the feed keeps its order and your place (across screens and app
+    restarts) until you refresh: pull down at the top for a new order with
+    new posts first, or tap Refresh at the end to add new posts below (the
+    "N new articles" button is gone). Posts end with tags (topic or a
+    source's own `tags`, then Article/Video/Short/Podcast), shown above the
+    title when opened; the same article from two feeds is one post with both
+    feeds' tags. Long videos show their length (the worker looks it up once
+    per video). Shorts play in the feed, muted until you turn the sound on
+    (it stays on until the app restarts); Settings → Autoplay Shorts, and
+    with it off a tap plays one in place.
+
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT
 Health & Wellness, Equality Arlington, UTA LGBTQ+ Program on events.uta.edu,
@@ -246,4 +257,3 @@ Next:
 
 - Should the feed have a daily "You're caught up" point by default, or only
   when you turn it on?
-- Dark mode for night reading: warm charcoal with sage?

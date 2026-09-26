@@ -1,11 +1,11 @@
 // Offline shell. Bump CACHE on every release so phones pick up the new files.
-const CACHE = 'bonsai-0.6.3';
+const CACHE = 'bonsai-0.7.0';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'sources.json',
   'css/tokens.css', 'css/app.css',
   'js/app.js', 'js/db.js', 'js/ui.js', 'js/logic.js', 'js/books.js', 'js/epub.js', 'js/sanitize.js',
   'js/selection.js', 'js/sidequest.js', 'js/posts.js', 'js/prefs.js', 'js/recent.js', 'js/readtools.js', 'js/fulltext.js',
-  'js/bookmark.js', 'js/entries.js', 'js/postmenu.js', 'js/jump.js', 'js/swipe.js',
+  'js/bookmark.js', 'js/entries.js', 'js/postmenu.js', 'js/jump.js', 'js/swipe.js', 'js/shorts.js', 'js/pull.js',
   'js/screens/feed.js', 'js/screens/item.js', 'js/screens/library.js', 'js/screens/reader.js',
   'js/screens/collections.js', 'js/screens/bonsai.js', 'js/screens/settings.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png',

@@ -6,7 +6,7 @@ import { applyTheme, applyText } from './prefs.js';
 import { openRecent } from './recent.js';
 import { initJump, jumpRefresh } from './jump.js';
 
-export const VERSION = '0.6.3';
+export const VERSION = '0.7.0';
 
 const SCREENS = {
   feed: () => import('./screens/feed.js'),
@@ -41,7 +41,7 @@ const NAV = [
 export const app = {
   settings: null,
   config: { topics: [], sources: [], books: [] }, // sources.json
-  feedScroll: 0,
+  feedView: undefined, // the feed's order and your place in it (screens/feed.js)
   topic: 'all',
   prevHash: null,
   onShown: null, // a screen can set this to run once it's on screen (e.g. restore a scroll position)

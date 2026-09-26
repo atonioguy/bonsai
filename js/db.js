@@ -63,6 +63,7 @@ export const DEFAULT_SETTINGS = {
   sqKey: '',
   libraryId: '',
   newsInFeed: false,
+  autoplayShorts: null, // null: on unless the phone asks for reduced motion (js/shorts.js)
   muted: [],
 };
 

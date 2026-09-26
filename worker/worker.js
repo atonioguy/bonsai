@@ -13,6 +13,11 @@ const REFRESH_GAP = 60_000;          // POST /refresh runs at most once a minute
 const MAX_AGE = 2 * 3600_000;        // a source is due for a refresh after 2 hours
 const RUN_BYTES = 300_000;           // feed text parsed per run: keeps CPU well inside the free limit
 const RUN_MAX = 6;                   // and at most this many sources per run
+// Video lengths aren't in YouTube's feeds, so each long video's watch page is read once (only up to
+// the length, then the download stops). A few per run, within their own byte budget; a known length
+// is carried over on every refresh, and a failed lookup isn't retried.
+const LEN_MAX = 3;
+const LEN_BYTES = 1_500_000;
 // Steady state is ~50 sources / 2 h ≈ 600 KV writes a day, under the free plan's 1,000.
 // Defaults, so the worker runs with only the FEEDS binding set. Override in the worker's variables.
 const SOURCES_URL = 'https://atonioguy.github.io/bonsai/sources.json';
@@ -97,8 +102,12 @@ async function feedBody(env, sources) {
 }
 
 async function refreshTimes(env) {
+  return new Map([...(await storedMeta(env))].map(([id, m]) => [id, m.fetchedAt || 0]));
+}
+
+async function storedMeta(env) {
   const listed = await env.FEEDS.list({ prefix: 'src:' });
-  return new Map(listed.keys.map((k) => [k.name.slice(4), (k.metadata && k.metadata.fetchedAt) || 0]));
+  return new Map(listed.keys.map((k) => [k.name.slice(4), k.metadata || {}]));
 }
 
 // Refresh every source that's due (never fetched, or older than MAX_AGE), stalest first, until the
@@ -106,7 +115,8 @@ async function refreshTimes(env) {
 // force: if nothing is due, refresh the stalest one anyway (manual refresh, first visit).
 async function refreshDue(env, sources, { force = false } = {}) {
   if (!sources.length) return [];
-  const at = await refreshTimes(env);
+  const meta = await storedMeta(env);
+  const at = new Map([...meta].map(([id, m]) => [id, m.fetchedAt || 0]));
   const now = Date.now();
   const order = sources.slice().sort((a, b) => (at.get(a.id) || 0) - (at.get(b.id) || 0));
   let due = order.filter((x) => now - (at.get(x.id) || 0) >= MAX_AGE);
@@ -118,7 +128,70 @@ async function refreshDue(env, sources, { force = false } = {}) {
     done.push(x.id);
     if (bytes >= RUN_BYTES) break;
   }
+  await fillLengths(env, sources, meta, done);
   return done;
+}
+
+// Look up the lengths still missing: sources refreshed just now first, then any the list shows
+// with `noLength` left over.
+async function fillLengths(env, sources, meta, refreshed) {
+  const want = sources.filter((x) => /^youtube:/.test(x.feed || '') && (refreshed.includes(x.id) || (meta.get(x.id) || {}).noLength > 0));
+  const budget = { n: LEN_MAX, bytes: LEN_BYTES };
+  for (const x of want) {
+    if (budget.n <= 0 || budget.bytes <= 0) break;
+    const key = 'src:' + x.id;
+    const cur = await env.FEEDS.getWithMetadata(key);
+    if (!cur.value) continue;
+    const items = JSON.parse(cur.value);
+    let changed = false;
+    for (const it of items) {
+      if (budget.n <= 0 || budget.bytes <= 0) break;
+      if (!needsLength(it)) continue;
+      budget.n--;
+      const { seconds, bytes } = await videoLength(it.videoId).catch(() => ({ seconds: 0, bytes: 0 }));
+      budget.bytes -= bytes;
+      it.length = seconds; // 0 = tried, not found: not tried again
+      changed = true;
+    }
+    if (changed) {
+      await env.FEEDS.put(key, JSON.stringify(items), { metadata: { ...(cur.metadata || {}), noLength: items.filter(needsLength).length } });
+    }
+  }
+}
+
+const needsLength = (it) => it.videoId && !it.short && it.length === undefined;
+
+// A video's length in seconds from its watch page. The page is large, so it's read in pieces and
+// the download stops as soon as the length shows up.
+export async function videoLength(id) {
+  const r = await fetch('https://www.youtube.com/watch?v=' + encodeURIComponent(id), {
+    headers: { 'accept-language': 'en-US,en;q=0.8', 'user-agent': 'Mozilla/5.0 (compatible; BonsaiFeeds/0.1)', cookie: 'CONSENT=YES+1; SOCS=CAI' },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT),
+  });
+  if (!r.ok || !r.body) return { seconds: 0, bytes: 0 };
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let tail = '', bytes = 0, seconds = 0;
+  while (bytes < LEN_BYTES) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    bytes += value.length;
+    const text = tail + dec.decode(value, { stream: true });
+    seconds = lengthIn(text);
+    if (seconds) break;
+    tail = text.slice(-120);
+  }
+  reader.cancel().catch(() => {});
+  return { seconds, bytes };
+}
+
+export function lengthIn(text) {
+  const s = /"lengthSeconds":"(\d+)"/.exec(text);
+  if (s) return Number(s[1]);
+  const iso = /itemprop="duration" content="PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/.exec(text);
+  if (iso && (iso[1] || iso[2] || iso[3])) return (Number(iso[1] || 0) * 3600) + (Number(iso[2] || 0) * 60) + Number(iso[3] || 0);
+  const ms = /"approxDurationMs":"(\d+)"/.exec(text);
+  return ms ? Math.round(Number(ms[1]) / 1000) : 0;
 }
 
 async function refreshOne(env, s) {
@@ -127,9 +200,14 @@ async function refreshOne(env, s) {
     const { items: all, bytes } = await fetchOne(s, env);
     const open = s.hideLocked ? all.filter((it) => !isLocked(it)) : all;
     const kept = open.slice(0, PER_SOURCE);
-    await env.FEEDS.put(key, JSON.stringify(kept), {
-      metadata: { fetchedAt: Date.now(), ok: true, count: kept.length, hidden: all.length - open.length },
-    });
+    const meta = { fetchedAt: Date.now(), ok: true, count: kept.length, hidden: all.length - open.length };
+    if (kept.some((it) => it.videoId)) { // keep the video lengths already looked up
+      const old = await env.FEEDS.get(key);
+      const known = new Map((old ? JSON.parse(old) : []).filter((it) => it.length !== undefined).map((it) => [it.videoId, it.length]));
+      for (const it of kept) if (known.has(it.videoId)) it.length = known.get(it.videoId);
+      meta.noLength = kept.filter(needsLength).length;
+    }
+    await env.FEEDS.put(key, JSON.stringify(kept), { metadata: meta });
     return bytes;
   } catch (e) {
     // Keep the last good items; just record the failure.

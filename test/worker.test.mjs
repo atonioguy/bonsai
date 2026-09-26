@@ -176,3 +176,55 @@ test('a run stops at its byte budget; the rest wait for the next run', async () 
   assert.equal(after1, 3, '3 x ~120 KB crosses the 300 KB budget');
   assert.equal(after2, 4);
 });
+
+test('video lengths: looked up once per long video, carried over, never for Shorts', async () => {
+  const env = { FEEDS: memKV() };
+  const saved = globalThis.fetch;
+  const watch = [];
+  const yt = readFileSync(new URL('./fixtures/youtube.xml', import.meta.url), 'utf8');
+  const page = '<html>' + 'x'.repeat(200_000) + '"videoDetails":{"videoId":"abcDEF12345","lengthSeconds":"754"}' + 'y'.repeat(200_000) + '</html>';
+  globalThis.fetch = async (u) => {
+    u = String(u);
+    if (u.endsWith('sources.json')) return new Response(JSON.stringify({ sources: [{ id: 'k', name: 'K', topic: 'science', kind: 'video', feed: 'youtube:UCsXVk37bltHxD1rDPwtNM8Q' }] }));
+    if (u.includes('videos.xml?channel_id=')) return new Response(yt);
+    if (u.startsWith('https://www.youtube.com/watch')) { watch.push(u); return new Response(page); }
+    return new Response('no', { status: 404 });
+  };
+  await run(env);
+  let items = JSON.parse(await env.FEEDS.get('src:k'));
+  assert.equal(items.find((i) => i.videoId === 'abcDEF12345').length, 754);
+  assert.equal(items.find((i) => i.videoId === 'shortID_123').length, undefined, 'no lookup for a Short');
+  assert.equal(env.FEEDS.m.get('src:k').metadata.noLength, 0);
+  assert.deepEqual(watch, ['https://www.youtube.com/watch?v=abcDEF12345']);
+  await age(env);
+  await run(env);
+  items = JSON.parse(await env.FEEDS.get('src:k'));
+  assert.equal(items.find((i) => i.videoId === 'abcDEF12345').length, 754, 'kept on refresh');
+  assert.equal(watch.length, 1, 'not looked up again');
+  globalThis.fetch = saved;
+});
+
+test('video lengths: a failed lookup is not retried; the rest wait for later runs', async () => {
+  const env = { FEEDS: memKV() };
+  const saved = globalThis.fetch;
+  const entry = (i) => `<entry><yt:videoId>vid${String(i).padStart(8, '0')}</yt:videoId><title>V${i}</title><link rel="alternate" href="https://www.youtube.com/watch?v=vid${String(i).padStart(8, '0')}"/><published>2026-09-2${i}T10:00:00Z</published></entry>`;
+  const feed = '<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015">' + [1, 2, 3, 4, 5].map(entry).join('') + '</feed>';
+  let lookups = 0;
+  globalThis.fetch = async (u) => {
+    u = String(u);
+    if (u.endsWith('sources.json')) return new Response(JSON.stringify({ sources: [{ id: 'k', name: 'K', topic: 'science', kind: 'video', feed: 'youtube:UCsXVk37bltHxD1rDPwtNM8Q' }] }));
+    if (u.includes('videos.xml')) return new Response(feed);
+    if (u.startsWith('https://www.youtube.com/watch')) { lookups++; return new Response('<html>consent page</html>'); }
+    return new Response('no', { status: 404 });
+  };
+  await run(env);
+  assert.equal(lookups, 3, 'three per run');
+  assert.equal(env.FEEDS.m.get('src:k').metadata.noLength, 2);
+  await run(env); // nothing due: this run only fills the missing lengths
+  assert.equal(lookups, 5);
+  assert.equal(env.FEEDS.m.get('src:k').metadata.noLength, 0);
+  await run(env);
+  assert.equal(lookups, 5, 'failed lookups are not retried');
+  assert.ok(JSON.parse(await env.FEEDS.get('src:k')).every((i) => i.length === 0));
+  globalThis.fetch = saved;
+});

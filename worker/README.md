@@ -12,6 +12,12 @@ minutes; after that most runs refresh one source or none. That keeps KV writes
 around 650 a day and lists around 290 (the free plan allows 1,000 of each; a
 2-minute schedule would use ~720 lists, too close). `GET /feed` returns everything stored.
 
+**Video lengths:** YouTube's feeds don't include them, so the worker reads each
+long video's page once (stopping as soon as it finds the length), at most 3 per
+run, and keeps the answer. Shorts are skipped. A new install fills them in over
+a few hours. New videos add roughly 20 writes a day, and a lookup that fails
+isn't retried.
+
 **Is it running?** Open `…workers.dev/health`. It shows how many sources are
 loaded, when the newest refresh happened, and how many are overdue. If `newest`
 is hours old, the Cron Trigger (step 5) isn't set. The app's Library screen

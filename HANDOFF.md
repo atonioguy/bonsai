@@ -4,7 +4,7 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.6.3)
+## Live state (v0.7.0)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
@@ -12,14 +12,52 @@ the "Local (circle back)" / "Next" notes).
   own). The cron is `*/5 * * * *` (the owner confirmed the change from
   `*/2`, made to stay under the KV list limit). `/health` shows whether it's
   running.
-- The deployed worker code matches `worker/bonsai-feeds.js` as of v0.6.1. Later
-  versions changed only a comment in it, so no re-paste is needed.
+- **Worker re-paste needed for v0.7.0:** `worker/bonsai-feeds.js` now looks up
+  long-video lengths. Until the owner re-pastes it (Edit code → Deploy),
+  videos simply show no length. Everything else in v0.7.0 works without it.
+
+## How the feed works now (v0.7.0)
+
+- The feed keeps a saved order per tab plus the post at the top of the screen
+  (IndexedDB `kv/feedView`). It survives screen changes and app restarts.
+  New posts come in only by pulling down at the top (a new order, new posts
+  first, every tab rebuilt) or by tapping Refresh at the end (new posts
+  appended below a "New" line). Background checks only update the cache and
+  the status line at the end.
+- Duplicates (same PubMed id, DOI in the link, YouTube id, or cleaned link)
+  merge in `mergeDuplicates` (js/logic.js). The kept id is the smallest, and
+  the others are kept in `dupIds`.
+- Tags come from `postTags`: a source's `tags` in sources.json, else its topic
+  name, then Article/Video/Short/Podcast.
+- Shorts use one shared YouTube IFrame API player that sits over the Short on
+  screen (js/shorts.js). It's one player so the sound can stay on on iPhone.
 
 ## Not yet confirmed on the owner's phone
 
+- v0.7.0, all of it (the session couldn't reach YouTube, so the Short player
+  was only tested with a stand-in):
+  - the feed keeps your place when you open posts, switch screens or reopen
+    the app
+  - pull down at the top to refresh; Refresh at the end adds posts below
+  - Shorts autoplay muted; the sound button; sound staying on for the next
+    Short; back to muted after the app restarts; the Settings switch; tap to
+    play with it off
+  - video lengths on thumbnails (after the worker re-paste, filling in over a
+    few hours)
+  - tags, and the ADHD/BPD duplicate showing once with both tags
 - Swipe left on a feed post (Reading list / Hide buttons), v0.6.3.
 - Holding a post no longer selects text (iOS), v0.6.3.
 - "Load full article" via Europe PMC: never confirmed working live.
+
+## Known risks to check if something's off
+
+- iPhone may refuse sound in the feed player after the app restarts until
+  you tap the sound button once. If so, Bonsai falls back to muted and shows
+  the sound as off. That's by design.
+- If YouTube's page layout changes, lengths stop appearing. The worker marks
+  each video as tried (`length: 0`) and doesn't retry it.
+- The book card's session lengths wrap to two lines at desktop width (seen
+  in the 1280 screenshots; not changed this session).
 
 ## Working with the owner
 

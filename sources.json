@@ -1,5 +1,5 @@
 {
-  "_note": "Sources for Bonsai. 'verified: false' = the URL hasn't been opened from here; the feed worker checks each one and Library shows 'Not loading' with the reason. 'hideLocked' drops paid-only posts. 'positive' marks good-news sources (one always makes the daily brief). 'youtube:@handle' feeds are resolved to the channel's video feed by the worker. Topics with 'brief: true' stay out of the main feed unless you turn them on (Settings).",
+  "_note": "Sources for Bonsai. 'verified: false' = the URL hasn't been opened from here; the feed worker checks each one and Library shows 'Not loading' with the reason. 'hideLocked' drops paid-only posts. 'positive' marks good-news sources (one always makes the daily brief). 'youtube:@handle' feeds are resolved to the channel's video feed by the worker. Topics with 'brief: true' stay out of the main feed unless you turn them on (Settings). 'tags' are the labels a source's posts get in the app (default: the topic's name).",
   "topics": [
     {
       "id": "mind",
@@ -57,6 +57,7 @@
     {
       "id": "pubmed-alert-adult-adhd",
       "topic": "mind",
+      "tags": ["ADHD"],
       "name": "PubMed alert: adult ADHD",
       "kind": "research",
       "site": "https://pubmed.ncbi.nlm.nih.gov/",
@@ -67,6 +68,7 @@
     {
       "id": "pubmed-alert-borderline-personality",
       "topic": "mind",
+      "tags": ["BPD"],
       "name": "PubMed alert: borderline personality",
       "kind": "research",
       "site": "https://pubmed.ncbi.nlm.nih.gov/",
@@ -77,6 +79,7 @@
     {
       "id": "pubmed-alert-depression-anxiety-reviews",
       "topic": "mind",
+      "tags": ["Depression", "Anxiety"],
       "name": "PubMed alert: depression & anxiety reviews",
       "kind": "research",
       "site": "https://pubmed.ncbi.nlm.nih.gov/",
@@ -87,6 +90,7 @@
     {
       "id": "borderline-personality-disorder-and-emotion-dysr",
       "topic": "mind",
+      "tags": ["BPD"],
       "name": "Borderline Personality Disorder and Emotion Dysregulation (open access)",
       "kind": "research",
       "site": "https://link.springer.com/journal/40479",
@@ -411,6 +415,7 @@
     {
       "id": "how-to-adhd",
       "topic": "mind",
+      "tags": ["ADHD"],
       "name": "How to ADHD",
       "kind": "video",
       "site": "https://www.youtube.com/@HowtoADHD",

@@ -1,30 +1,41 @@
 import * as db from '../db.js';
 import {
-  mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, SESSION_CHOICES,
-  dueListed, afterListShown, newCounts, splitNew, pickBrief, dayKey, BRIEF_SIZE, serverHealth,
+  mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, mergeDuplicates, SESSION_CHOICES,
+  dueListed, afterListShown, newCounts, splitNew, pickBrief, dayKey, BRIEF_SIZE, serverHealth, topicsOf, isMuted, seenOf,
 } from '../logic.js';
-import { h, enso, icon } from '../ui.js';
+import { h, enso, icon, toast } from '../ui.js';
 import { currentBook, percent } from '../books.js';
 import { openedMap, seenMap, markSeen, allPosts, savePost, hiddenMap, setHidden } from '../posts.js';
 import { entryEl, hiddenEl } from '../entries.js';
 import { enablePostMenu } from '../postmenu.js';
 import { enableSwipe } from '../swipe.js';
+import { enableShorts, autoplayOn } from '../shorts.js';
+import { enablePull } from '../pull.js';
 
-const STALE = 10 * 60_000; // refetch the feed when the cached copy is older than this
+const STALE = 10 * 60_000; // check the feed server in the background when the cached copy is older than this
+const slim = ({ html, ...rest }) => rest; // a post as the feed shows it (the full text stays in the cache)
 
 export async function render(main, app) {
   const s = app.settings;
   let cache = await db.get('kv', 'feed');          // { updatedAt, fetchedAt, items, status }
+  if (cache && !cache.merged) { // saved before duplicates were merged
+    cache = { ...cache, items: mergeDuplicates(cache.items), merged: true };
+    await db.put('kv', 'feed', cache);
+  }
   const muted = new Set(s.muted);
+
+  // The feed keeps its order until you refresh it (pull down, or Refresh at the end): per tab, the
+  // posts in the order you saw them and the post at the top of the screen. Kept across app restarts.
+  if (app.feedView === undefined) app.feedView = (await db.get('kv', 'feedView')) || null;
+  const sig = JSON.stringify([s.muted, Boolean(s.newsInFeed)]); // a Settings/Library change rebuilds it
+  if (!app.feedView || app.feedView.sig !== sig) app.feedView = { sig, tabs: {} };
+  const views = () => app.feedView.tabs;
+  let saveTimer = null;
+  const saveViews = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => db.put('kv', 'feedView', app.feedView), 500); };
 
   const tabs = h('div', { class: 'tabs', role: 'group', 'aria-label': 'Topics' });
   const list = h('div', { class: 'feed' });
-  const pill = h('button', { type: 'button', class: 'new-pill', hidden: true, onclick: () => {
-    pill.hidden = true;
-    draw();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } });
-  main.append(h('h1', { class: 'visually-hidden', text: 'Feed' }), tabs, pill, list);
+  main.append(h('h1', { class: 'visually-hidden', text: 'Feed' }), tabs, list);
 
   const topics = [{ id: 'all', name: 'All' }, { id: '_list', name: 'Reading list' }, ...app.config.topics];
   if (!topics.some((t) => t.id === app.topic)) app.topic = 'all';
@@ -33,10 +44,12 @@ export async function render(main, app) {
     const tab = h('button', {
       type: 'button', class: 'tab', 'aria-pressed': String(app.topic === t.id), 'data-topic': t.id,
       onclick: () => {
+        if (app.topic === t.id) return;
+        captureAnchor();
         app.topic = t.id;
         tabs.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-pressed', String(b === tab)));
-        pill.hidden = true;
         draw();
+        restoreAnchor();
       },
     }, h('span', { text: t.name }), count);
     tab._name = t.name;
@@ -45,11 +58,24 @@ export async function render(main, app) {
     return tab;
   });
 
-  let [book, saved, posts, opened, hidden] = await Promise.all([currentBook(), db.all('saved'), allPosts(), openedMap(), hiddenMap()]);
-  const throwbacks = dueThrowbacks(saved, Date.now(), 3);
-  const listed = dueListed(posts, Date.now(), 2);
+  let book, saved, posts, opened, hidden, throwbacks, listed;
+  async function loadExtras() {
+    [book, saved, posts, opened, hidden] = await Promise.all([currentBook(), db.all('saved'), allPosts(), openedMap(), hiddenMap()]);
+    throwbacks = dueThrowbacks(saved, Date.now(), 3);
+    listed = dueListed(posts, Date.now(), 2);
+  }
+  await loadExtras();
   let seen = await seenMap();
-  let loading = false, error = '';
+  let loading = false, error = '', note = '';
+
+  // Every id a post goes by (a merged post keeps the other feed's id too), for lookups by id.
+  let byId = new Map();
+  const index = () => {
+    byId = new Map();
+    for (const i of cache?.items || []) for (const id of [i.id, ...(i.dupIds || [])]) if (!byId.has(id)) byId.set(id, i);
+  };
+  index();
+  const openedAt = (i) => opened[i.id] || (i.dupIds || []).map((d) => opened[d]).find(Boolean) || 0;
 
   // First run with "new" tracking: everything already here counts as seen, so it doesn't open on "240 new".
   async function initSeen() {
@@ -62,12 +88,12 @@ export async function render(main, app) {
   // Topics marked "brief" (News) stay out of All unless turned on in Settings; their tab still lists them.
   const briefTopics = new Set(app.config.topics.filter((t) => t.brief).map((t) => t.id));
   const positive = new Set(app.config.sources.filter((x) => x.positive).map((x) => x.id));
-  const inAll = (items) => (s.newsInFeed ? items : items.filter((i) => !briefTopics.has(i.topic)));
+  const inAll = (items) => (s.newsInFeed ? items : items.filter((i) => !topicsOf(i).every((t) => briefTopics.has(t))));
+  const pool = (topic) => (cache ? mixFeed(topic === 'all' ? inAll(cache.items) : cache.items, { topic, muted }) : []);
 
   // Today's brief: picked once a day (so it doesn't reshuffle), refilled if it came up short.
   async function brief() {
     if (!cache || !briefTopics.size) return [];
-    const byId = new Map(cache.items.map((i) => [i.id, i]));
     const saved = await db.get('kv', 'brief');
     let picked = saved && saved.day === dayKey() ? saved.ids.map((id) => byId.get(id)).filter(Boolean) : [];
     if (picked.length < BRIEF_SIZE) {
@@ -96,7 +122,9 @@ export async function render(main, app) {
       watcher.unobserve(r.target);
       const id = r.target.dataset.id;
       if (r.target.classList.contains('entry')) {
-        if (seen && !seen[id]) { seen[id] = Date.now(); pendingSeen.push(id); }
+        for (const d of [id, ...(byId.get(id)?.dupIds || [])]) {
+          if (seen && !seen[d]) { seen[d] = Date.now(); pendingSeen.push(d); }
+        }
       } else if (r.target.classList.contains('throwback')) {
         const entry = throwbacks.find((t) => t.id === id);
         if (entry) db.put('saved', entry.id, afterShown(entry));
@@ -111,7 +139,59 @@ export async function render(main, app) {
 
   const itemEl = (it) => (hidden[it.id]
     ? hiddenEl(it, async () => { hidden = await setHidden(it.id, false); refresh(it.id); })
-    : entryEl(it, { openedAt: opened[it.id] }));
+    : entryEl(it, { openedAt: openedAt(it) }));
+
+  // ---------- the feed as a list of card keys ----------
+  const keyOf = (c) => (c.type === 'entry' ? 'e:' + c.data.id : c.type === 'book' ? 'book' : c.type === 'listed' ? 'l:' + c.data.id
+    : c.type === 'throwback' ? 't:' + c.data.id : c.type === 'divider' ? 'earlier' : c.type === 'brief' ? 'brief' : 'new:' + c.at);
+
+  // A fresh order for a tab: new posts first, then an "Earlier" line and the ones already seen.
+  function buildView(topic) {
+    const { fresh, older } = splitNew(pool(topic), seen);
+    const entries = [...fresh, ...older];
+    const all = topic === 'all'; // the book card and your own cards belong to the main mix only
+    const cards = composeFeed(entries, { book: all ? book : null, throwbacks: all ? throwbacks : [], listed: all ? listed : [] });
+    if (fresh.length && older.length) {
+      const at = cards.findIndex((c) => c.type === 'entry' && c.data === older[0]);
+      cards.splice(at, 0, { type: 'divider' });
+    }
+    if ((all || briefTopics.has(topic)) && briefItems.length) cards.unshift({ type: 'brief' });
+    return { keys: cards.map(keyOf), items: Object.fromEntries(entries.map((e) => [e.id, slim(e)])), anchor: null, entries: entries.length };
+  }
+
+  // The saved order back as cards, with today's state (opened, hidden, the current book…).
+  function cardsOf(view, topic) {
+    const out = [], shown = new Set();
+    const savedById = new Map(saved.map((x) => [x.id, x]));
+    const postById = new Map(posts.map((p) => [p.id, p]));
+    for (const k of view.keys) {
+      const id = k.slice(2);
+      if (k.startsWith('e:')) {
+        const it = byId.get(id) || view.items[id];
+        if (it && !shown.has(it.id) && !isMuted(it, muted)) { shown.add(it.id); out.push({ type: 'entry', data: it }); }
+      } else if (k === 'book') { if (book) out.push({ type: 'book', data: book }); }
+      else if (k.startsWith('t:')) { if (savedById.has(id)) out.push({ type: 'throwback', data: savedById.get(id) }); }
+      else if (k.startsWith('l:')) { if (postById.get(id)?.list) out.push({ type: 'listed', data: postById.get(id) }); }
+      else if (k === 'earlier') out.push({ type: 'divider' });
+      else if (k.startsWith('new:')) out.push({ type: 'new', at: Number(k.slice(4)) });
+      else if (k === 'brief') { if (briefItems.length) out.push({ type: 'brief' }); }
+    }
+    // A book started since this order was made still gets its usual place.
+    if (topic === 'all' && book && !view.keys.includes('book')) out.splice(Math.min(1, out.length), 0, { type: 'book', data: book });
+    return out;
+  }
+
+  function cardEl(c) {
+    const el = c.type === 'entry' ? itemEl(c.data)
+      : c.type === 'book' ? bookEl(c.data, s)
+        : c.type === 'listed' ? listedEl(c.data)
+          : c.type === 'divider' ? h('div', { class: 'earlier', role: 'separator' }, h('span', { text: 'Earlier' }))
+            : c.type === 'new' ? h('div', { class: 'earlier', role: 'separator' }, h('span', { text: 'New' }))
+              : c.type === 'brief' ? briefEl(briefItems, opened, positive)
+                : throwbackEl(c.data);
+    el.dataset.key = keyOf(c);
+    return el;
+  }
 
   // The Reading list tab: your queue as a feed of its own (oldest added first, like a queue).
   function drawList() {
@@ -125,30 +205,59 @@ export async function render(main, app) {
 
   function draw() {
     watcher.disconnect();
-    if (app.topic === '_list') return drawList();
-    const mixed = cache ? mixFeed(app.topic === 'all' ? inAll(cache.items) : cache.items, { topic: app.topic, muted }) : [];
-    const { fresh, older } = splitNew(mixed, seen);
-    const entries = [...fresh, ...older];
-    const all = app.topic === 'all'; // the book card and your own cards belong to the main mix only
-    const cards = composeFeed(entries, { book: all ? book : null, throwbacks: all ? throwbacks : [], listed: all ? listed : [] });
-    if (fresh.length && older.length) {
-      const at = cards.findIndex((c) => c.type === 'entry' && c.data === older[0]);
-      cards.splice(at, 0, { type: 'divider' });
+    if (app.topic === '_list') { drawList(); shorts.scan(); return; }
+    let view = views()[app.topic];
+    if (!view || (!view.entries && cache?.items.length)) { // never built, or built before anything arrived
+      view = views()[app.topic] = buildView(app.topic);
+      saveViews();
     }
-    if ((all || briefTopics.has(app.topic)) && briefItems.length) cards.unshift({ type: 'brief' });
-    list.replaceChildren(...cards.map((c) => (
-      c.type === 'entry' ? itemEl(c.data)
-        : c.type === 'book' ? bookEl(c.data, s)
-          : c.type === 'listed' ? listedEl(c.data)
-            : c.type === 'divider' ? h('div', { class: 'earlier', role: 'separator' }, h('span', { text: 'Earlier' }))
-              : c.type === 'brief' ? briefEl(briefItems, opened, positive)
-              : throwbackEl(c.data))));
+    list.replaceChildren(...cardsOf(view, app.topic).map(cardEl));
     list.querySelectorAll('.entry, .throwback, .listed').forEach((el) => watcher.observe(el));
-    list.appendChild(endEl(entries.length));
+    list.appendChild(endEl());
     paintCounts();
+    shorts.scan();
   }
 
-  function endEl(count) {
+  // ---------- keep your place ----------
+  const topbar = document.querySelector('.topbar');
+  function captureAnchor() {
+    const view = views()[app.topic] || (views()[app.topic] = { keys: [], items: {}, anchor: null, list: true });
+    if (window.scrollY < 4) { view.anchor = null; return; }
+    const edge = topbar ? topbar.getBoundingClientRect().bottom : 0;
+    for (const el of list.children) {
+      if (!el.dataset.key && !el.dataset.id) continue;
+      const r = el.getBoundingClientRect();
+      if (r.bottom > edge + 1) { view.anchor = { key: el.dataset.key || 'e:' + el.dataset.id, off: r.top }; return; }
+    }
+  }
+  function restoreAnchor() {
+    const a = views()[app.topic]?.anchor;
+    const el = a && list.querySelector(`[data-key="${CSS.escape(a.key)}"]`);
+    window.scrollTo(0, el ? el.getBoundingClientRect().top + window.scrollY - a.off : 0);
+  }
+  let anchorTimer = null;
+  const onScroll = () => {
+    if (anchorTimer) return;
+    anchorTimer = setTimeout(() => { anchorTimer = null; captureAnchor(); saveViews(); }, 200);
+  };
+
+  // ---------- the end of the list: status and Refresh ----------
+  // Posts the server has that this tab isn't showing yet (they come in when you refresh).
+  function waiting() {
+    const view = views()[app.topic];
+    if (!view || app.topic === '_list') return 0;
+    const inView = new Set(view.keys.filter((k) => k.startsWith('e:')).map((k) => k.slice(2)));
+    return pool(app.topic).filter((i) => !seenOf(seen, i) && ![i.id, ...(i.dupIds || [])].some((d) => inView.has(d))).length;
+  }
+
+  function endEl() {
+    const el = endContent(list.querySelectorAll('.entry, .entry-hidden').length);
+    el.dataset.end = '';
+    return el;
+  }
+  const paintEnd = () => list.querySelector('[data-end]')?.replaceWith(endEl());
+
+  function endContent(count) {
     if (!s.feedUrl) {
       return h('div', { class: 'empty' },
         h('h2', { text: 'Feed server not set' }),
@@ -160,11 +269,13 @@ export async function render(main, app) {
       return h('div', { class: 'empty' },
         h('h2', { text: 'Couldn’t load the feed' }),
         h('p', { class: 'lead', text: error }),
-        h('button', { type: 'button', class: 'btn btn-secondary', onclick: () => load(true) }, 'Try again'));
+        h('button', { type: 'button', class: 'btn btn-secondary', onclick: () => refreshTop() }, 'Try again'));
     }
     if (!count) {
       const name = app.topic === 'all' ? '' : ' in ' + app.topicName(app.topic);
-      return h('p', { class: 'feed-end meta', text: 'No articles' + name + ' yet.' });
+      return h('div', { class: 'feed-end' },
+        h('p', { class: 'meta', text: 'No articles' + name + ' yet.' }),
+        h('button', { type: 'button', class: 'btn btn-secondary', disabled: loading, onclick: () => refreshTop() }, icon('refresh', 18), 'Refresh'));
     }
     // While the feed server is still doing its first pass, say how far along it is.
     const health = serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length);
@@ -173,20 +284,31 @@ export async function render(main, app) {
         ? `${health.loaded} of ${health.expected} sources loaded. The feed server’s schedule doesn’t seem to be running, so Bonsai is loading them while the app is open. To fix it, see Library → Sources.`
         : `${health.loaded} of ${health.expected} sources loaded. The rest are on their way.`)
       : null;
+    const n = loading ? 0 : waiting();
+    const status = loading ? 'Updating…'
+      : note ? note
+        : n ? `${n} new ${n === 1 ? 'post' : 'posts'} · Refresh to add ${n === 1 ? 'it' : 'them'}`
+          : 'You’re up to date · updated ' + relTime(cache.fetchedAt || cache.updatedAt);
     return h('div', { class: 'feed-end' },
-      h('p', { class: 'meta', role: 'status' },
-        loading ? 'Updating…' : 'You’re up to date · updated ' + relTime(cache.fetchedAt || cache.updatedAt)),
+      h('p', { class: 'meta', role: 'status', text: status }),
       filling,
-      h('button', { type: 'button', class: 'btn-text', disabled: loading, onclick: () => load(true) }, 'Refresh'));
+      h('button', { type: 'button', class: 'btn btn-secondary', disabled: loading, onclick: () => refreshBottom() }, icon('refresh', 18), 'Refresh'));
   }
 
-  async function load(force) {
-    if (!s.feedUrl || loading) return;
-    if (!force && cache && Date.now() - (cache.fetchedAt || 0) < STALE) return;
-    loading = true; error = '';
-    // Only the status line changes while loading; redrawing the list would lose your place.
-    if (list.querySelector('.entry')) list.lastChild.replaceWith(endEl(list.querySelectorAll('.entry').length));
-    else draw();
+  // ---------- loading ----------
+  // Fetches the feed into the cache. What's on screen doesn't change (unless nothing was yet).
+  // Resolves false if it failed; a refresh during a background load waits for that one.
+  let inflight = null;
+  function load(force) {
+    if (!s.feedUrl) return Promise.resolve(false);
+    if (inflight) return inflight;
+    if (!force && cache && Date.now() - (cache.fetchedAt || 0) < STALE) return Promise.resolve(true);
+    inflight = fetchFeed(force).finally(() => { inflight = null; });
+    return inflight;
+  }
+  async function fetchFeed(force) {
+    loading = true; error = ''; note = '';
+    if (list.querySelector('[data-key]')) paintEnd(); else draw();
     try {
       const base = s.feedUrl.replace(/\/+$/, '');
       if (force) await fetch(base + '/refresh', { method: 'POST' }).catch(() => {});
@@ -194,29 +316,54 @@ export async function render(main, app) {
       if (!r.ok) throw new Error('The feed server answered ' + r.status + '.');
       cache = { ...normalizeFeed(await r.json()), fetchedAt: Date.now() };
       await db.put('kv', 'feed', cache);
+      index();
       await initSeen();
       briefItems = await brief();
     } catch (e) {
       error = e instanceof TypeError ? 'The feed server couldn’t be reached.' : e.message;
     }
     loading = false;
-    const atTop = window.scrollY < 200;
-    if (atTop || !list.querySelector('.entry')) draw();
-    else {
-      // Reading further down: don't move things; offer the new ones instead.
-      list.lastChild.replaceWith(endEl(list.querySelectorAll('.entry').length));
-      paintCounts();
-      const shown = new Set([...list.querySelectorAll('.entry')].map((e) => e.dataset.id));
-      const waiting = mixFeed(app.topic === 'all' ? inAll(cache?.items || []) : cache?.items || [], { topic: app.topic, muted }).filter((i) => !seen?.[i.id] && !shown.has(i.id)).length;
-      if (waiting) {
-        pill.replaceChildren(icon('back', 18), h('span', { text: waiting === 1 ? '1 new article' : waiting + ' new articles' }));
-        pill.hidden = false;
-      }
-    }
+    if (!list.querySelector('.entry, .entry-hidden')) draw();
+    else { paintEnd(); paintCounts(); }
+    return !error;
+  }
+
+  // Pull down at the top: a new order with what's new first, for every tab.
+  async function refreshTop() {
+    const ok = await load(true);
+    if (!ok && cache) { toast('Couldn’t refresh. ' + error); return; }
+    await loadExtras();
+    if (pendingSeen.length) await markSeen(pendingSeen.splice(0));
+    app.feedView.tabs = {};
+    saveViews();
+    draw();
+    window.scrollTo(0, 0);
+  }
+
+  // Refresh at the end: new posts join below, where you are.
+  async function refreshBottom() {
+    const ok = await load(true);
+    if (!ok && cache) { toast('Couldn’t refresh. ' + error); return; }
+    if (app.topic === '_list') { await loadExtras(); drawList(); return; }
+    const view = views()[app.topic];
+    if (!view) { draw(); return; }
+    const inView = new Set(view.keys.filter((k) => k.startsWith('e:')).map((k) => k.slice(2)));
+    const added = pool(app.topic).filter((i) => !seenOf(seen, i) && ![i.id, ...(i.dupIds || [])].some((d) => inView.has(d)));
+    if (!added.length) { note = 'No new posts · updated just now'; paintEnd(); return; }
+    const mark = { type: 'new', at: Date.now() };
+    view.keys.push(keyOf(mark), ...added.map((i) => 'e:' + i.id));
+    for (const i of added) view.items[i.id] = slim(i);
+    view.entries = (view.entries || 0) + added.length;
+    saveViews();
+    const els = [cardEl(mark), ...added.map((i) => cardEl({ type: 'entry', data: i }))];
+    list.querySelector('[data-end]').before(...els);
+    els.forEach((el) => { if (el.classList.contains('entry')) watcher.observe(el); });
+    paintEnd();
+    shorts.scan();
   }
 
   // Long-press / right-click menu. After an action only that post is redrawn, so nothing jumps.
-  const lookup = (id) => cache?.items.find((i) => i.id === id) || posts.find((p) => p.id === id)?.item || null;
+  const lookup = (id) => byId.get(id) || posts.find((p) => p.id === id)?.item || views()[app.topic]?.items?.[id] || null;
   async function refresh(id) {
     [opened, hidden, posts] = await Promise.all([openedMap(), hiddenMap(), allPosts()]);
     if (app.topic === '_list') return drawList();
@@ -232,18 +379,22 @@ export async function render(main, app) {
       const a = li.querySelector('[data-post]');
       if (a) li.classList.toggle('is-read', Boolean(opened[a.dataset.post]));
     });
+    shorts.scan();
   }
   const detachMenu = enablePostMenu(list, lookup, (kind, it) => refresh(it.id));
   // Swipe left for Reading list / Hide (the Reading list tab only needs the first).
   const detachSwipe = enableSwipe(list, lookup, (kind, it) => refresh(it.id), { canHide: () => app.topic !== '_list' });
+  const shorts = enableShorts(list, { autoplay: autoplayOn(s) });
+  const detachPull = s.feedUrl ? enablePull(refreshTop) : () => {};
 
   await initSeen();
   draw();
-  if (app.feedScroll) { const y = app.feedScroll; app.onShown = () => window.scrollTo(0, y); }
+  app.onShown = restoreAnchor;
+  window.addEventListener('scroll', onScroll, { passive: true });
   load(false);
 
   // While sources are still missing, nudge the feed server about once a minute as long as the app
-  // is open (it refreshes whatever is due each time), and pick up what arrived.
+  // is open (it refreshes whatever is due each time). What arrives waits for your next refresh.
   const nudge = setInterval(async () => {
     if (!s.feedUrl || loading || document.visibilityState !== 'visible' || !cache) return;
     const health = serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length);
@@ -257,12 +408,17 @@ export async function render(main, app) {
 
   return () => {
     clearInterval(nudge);
-    app.feedScroll = window.scrollY;
+    clearTimeout(anchorTimer);
+    window.removeEventListener('scroll', onScroll);
     watcher.disconnect();
     detachMenu();
     detachSwipe();
+    shorts.detach();
+    detachPull();
     clearTimeout(seenTimer);
     if (pendingSeen.length) markSeen(pendingSeen.splice(0));
+    clearTimeout(saveTimer);
+    db.put('kv', 'feedView', app.feedView);
   };
 }
 

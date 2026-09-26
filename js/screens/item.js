@@ -1,5 +1,5 @@
 import * as db from '../db.js';
-import { relTime, newListEntry, articleIds, libkeyUrl } from '../logic.js';
+import { relTime, newListEntry, articleIds, libkeyUrl, formatLength } from '../logic.js';
 import { loadFullText } from '../fulltext.js';
 import { h, icon, toast, fmtDate, sharePost, REACTIONS, reactionIcon, avatarEl } from '../ui.js';
 import { sanitize } from '../sanitize.js';
@@ -7,11 +7,13 @@ import { attachSaveQuote } from '../selection.js';
 import { readControls } from '../readtools.js';
 import { getPost, ensurePost, savePost, markOpened } from '../posts.js';
 import { bookmarkSheet } from '../bookmark.js';
+import { tagsEl } from '../entries.js';
 
 export async function render(main, app, id) {
   const cache = await db.get('kv', 'feed');
   const stored = await getPost(id);
-  const item = cache?.items.find((i) => i.id === id) || stored?.item;
+  const inView = Object.values(app.feedView?.tabs || {}).map((v) => v.items?.[id]).find(Boolean); // left the server's feed since
+  const item = cache?.items.find((i) => i.id === id || i.dupIds?.includes(id)) || stored?.item || inView;
 
   const backBtn = h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Back', onclick: () => app.back() }, icon('back'));
 
@@ -181,7 +183,8 @@ export async function render(main, app, id) {
     bar,
     h('article', {},
       h('header', { class: 'article-head' },
-        h('p', { class: 'meta', text: [item.sourceName, fmtDate(item.published) || relTime(item.published)].filter(Boolean).join(' · ') }),
+        tagsEl(item),
+        h('p', { class: 'meta', text: [item.sourceName, fmtDate(item.published) || relTime(item.published), item.short ? null : formatLength(item.length)].filter(Boolean).join(' · ') }),
         h('h1', { class: 'article-title', text: item.title }),
         item.audioUrl ? h('audio', { controls: true, preload: 'none', src: item.audioUrl }) : null,
         item.videoId && /^[\w-]{11}$/.test(item.videoId) ? h('div', { class: 'player' + (item.short ? ' is-short' : '') },

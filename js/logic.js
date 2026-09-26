@@ -51,13 +51,16 @@ export function afterListShown(list, now = Date.now()) {
 }
 
 // ---------- new (not yet seen) items ----------
+// Seen under its own id or, for a merged post, under the other feed's id.
+export const seenOf = (seen, i) => Boolean(seen && (seen[i.id] || (i.dupIds || []).some((d) => seen[d])));
+
 export function newCounts(items, seen, muted = new Set()) {
   const byTopic = {};
   let all = 0;
   for (const i of items) {
-    if (muted.has(i.sourceId) || (seen && seen[i.id])) continue;
+    if (isMuted(i, muted) || seenOf(seen, i)) continue;
     all++;
-    byTopic[i.topic] = (byTopic[i.topic] || 0) + 1;
+    for (const t of topicsOf(i)) byTopic[t] = (byTopic[t] || 0) + 1;
   }
   return { all, byTopic };
 }
@@ -65,7 +68,7 @@ export function newCounts(items, seen, muted = new Set()) {
 // New items first, then the ones already seen (the feed puts an "Earlier" line between).
 export function splitNew(entries, seen) {
   const fresh = [], older = [];
-  for (const e of entries) (seen && seen[e.id] ? older : fresh).push(e);
+  for (const e of entries) (seenOf(seen, e) ? older : fresh).push(e);
   return { fresh, older };
 }
 
@@ -90,13 +93,103 @@ export function finalizeStale(s, now = Date.now()) {
 
 // ---------- feed mix ----------
 // The worker answers { sources: [{ id, meta, items }] }; the app works with flat items + status.
+// The same article from two feeds (e.g. two PubMed searches) becomes one post.
 export function normalizeFeed(data) {
-  if (!data || !Array.isArray(data.sources)) return { updatedAt: data?.updatedAt, items: data?.items || [], status: data?.status || [] };
+  if (!data || !Array.isArray(data.sources)) return { updatedAt: data?.updatedAt, items: mergeDuplicates(data?.items || []), status: data?.status || [], merged: true };
   return {
     updatedAt: data.updatedAt,
-    items: data.sources.flatMap((s) => s.items || []),
+    items: mergeDuplicates(data.sources.flatMap((s) => s.items || [])),
     status: data.sources.map((s) => ({ id: s.id, ...(s.meta || {}) })),
+    merged: true,
   };
+}
+
+// A merged post lists every source and topic it came from; a single one has just its own.
+export const sourcesOf = (i) => i.sourceIds || [i.sourceId];
+export const topicsOf = (i) => i.topics || [i.topic];
+export const hasTopic = (i, topic) => topicsOf(i).includes(topic);
+export const isMuted = (i, muted) => sourcesOf(i).every((id) => muted.has(id));
+
+// What makes two feed items the same article: the PubMed id or DOI in its link, the YouTube video,
+// else the link without tracking parameters. Only the link counts (a DOI cited in the text doesn't).
+export function dupKey(item) {
+  if (item.videoId) return 'yt:' + item.videoId;
+  const url = item.url || '';
+  const pmid = /pubmed\.ncbi\.nlm\.nih\.gov\/(\d{5,9})/.exec(url);
+  if (pmid) return 'pmid:' + pmid[1];
+  const doi = /\b(10\.\d{4,9}\/[^\s?#]+)/.exec(url);
+  if (doi) return 'doi:' + decodeURIComponent(doi[1]).toLowerCase().replace(/\/(full|abstract|pdf|epdf)$/, '');
+  try {
+    const u = new URL(url);
+    for (const k of [...u.searchParams.keys()]) if (/^(utm_|fbclid$|gclid$|mc_(cid|eid)$|ref$)/.test(k)) u.searchParams.delete(k);
+    return 'url:' + u.hostname.replace(/^www\./, '') + u.pathname.replace(/\/+$/, '') + (u.search || '');
+  } catch {
+    return 'id:' + item.id;
+  }
+}
+
+// Duplicates collapse into the one with the smallest id (stable while both feeds carry it). The
+// others' ids stay on it as dupIds, so "seen" and "opened" carry over if one feed drops it.
+export function mergeDuplicates(items) {
+  const groups = new Map();
+  for (const i of items) {
+    const k = dupKey(i);
+    const g = groups.get(k);
+    if (g) g.push(i); else groups.set(k, [i]);
+  }
+  const out = [];
+  for (const g of groups.values()) {
+    if (g.length === 1) { out.push(g[0]); continue; }
+    g.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const best = g.reduce((a, b) => ((b.html || '').length > (a.html || '').length ? b : a));
+    const uniq = (xs) => [...new Set(xs)];
+    out.push({
+      ...g[0],
+      html: best.html || g[0].html,
+      excerpt: g[0].excerpt || best.excerpt,
+      sourceIds: uniq(g.flatMap(sourcesOf)),
+      topics: uniq(g.flatMap(topicsOf)),
+      dupIds: uniq(g.slice(1).map((i) => i.id)),
+    });
+  }
+  return out;
+}
+
+// ---------- tags ----------
+// A post's tags: what it's about (a source's own `tags` in sources.json, else its topic's name),
+// then what it is (Article, Video, Short, Podcast).
+export function mediaTag(item) {
+  if (item.videoId) return item.short ? 'Short' : 'Video';
+  if (item.kind === 'audio' || item.audioUrl) return 'Podcast';
+  return 'Article';
+}
+
+export function postTags(item, config = {}) {
+  const sources = config.sources || [], topics = config.topics || [];
+  const out = [];
+  for (const id of sourcesOf(item)) {
+    const src = sources.find((x) => x.id === id);
+    const topicName = (t) => topics.find((x) => x.id === t)?.name;
+    const labels = src?.tags?.length ? src.tags : [topicName(src?.topic || item.topic)];
+    for (const l of labels) if (l && !out.includes(l)) out.push(l);
+  }
+  if (!sourcesOf(item).some((id) => sources.some((x) => x.id === id))) {
+    for (const t of topicsOf(item)) { // a source no longer in sources.json: fall back to the topic
+      const n = topics.find((x) => x.id === t)?.name;
+      if (n && !out.includes(n)) out.push(n);
+    }
+  }
+  out.push(mediaTag(item));
+  return out;
+}
+
+// 754 → "12:34", 3723 → "1:02:03"
+export function formatLength(sec) {
+  const s = Math.round(Number(sec) || 0);
+  if (s <= 0) return '';
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return h ? `${h}:${pad(m)}:${pad(r)}` : `${m}:${pad(r)}`;
 }
 
 /**
@@ -106,7 +199,7 @@ export function normalizeFeed(data) {
  */
 export function mixFeed(items, { topic = 'all', muted = new Set(), limit = 80 } = {}) {
   const pool = items
-    .filter((i) => (topic === 'all' || i.topic === topic) && !muted.has(i.sourceId))
+    .filter((i) => (topic === 'all' || hasTopic(i, topic)) && !isMuted(i, muted))
     .sort((a, b) => (b.published || '').localeCompare(a.published || ''));
   const out = [];
   while (pool.length && out.length < limit) {
@@ -260,7 +353,7 @@ export function dayKey(now = Date.now()) {
 }
 
 export function pickBrief(items, { topic = 'news', positive = new Set(), now = Date.now(), size = BRIEF_SIZE } = {}) {
-  const news = items.filter((i) => i.topic === topic);
+  const news = items.filter((i) => hasTopic(i, topic));
   const within = (hours) => news.filter((i) => i.published && now - Date.parse(i.published) < hours * 3600e3);
   let pool = within(36);
   if (pool.length < size) pool = within(96);

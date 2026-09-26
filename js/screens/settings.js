@@ -2,6 +2,7 @@ import * as db from '../db.js';
 import { h, toast, avatarEl, AVATARS } from '../ui.js';
 import { VERSION } from '../app.js';
 import { themeChoice, setTheme } from '../prefs.js';
+import { autoplayOn } from '../shorts.js';
 
 export async function render(main, app) {
   const s = app.settings;
@@ -15,6 +16,8 @@ export async function render(main, app) {
 
   const newsInFeed = h('input', { type: 'checkbox', role: 'switch', class: 'switch', id: 'news-in-feed', checked: Boolean(s.newsInFeed) });
   newsInFeed.addEventListener('change', async () => { app.settings = await db.saveSettings({ newsInFeed: newsInFeed.checked }); });
+  const autoplay = h('input', { type: 'checkbox', role: 'switch', class: 'switch', id: 'autoplay-shorts', checked: autoplayOn(s) });
+  autoplay.addEventListener('change', async () => { app.settings = await db.saveSettings({ autoplayShorts: autoplay.checked }); });
   const libraryId = h('input', { class: 'input', id: 'library-id', type: 'text', inputmode: 'numeric', autocomplete: 'off', value: s.libraryId || '', 'aria-describedby': 'library-id-hint' });
 
   const form = h('form', { class: 'form', onsubmit: async (e) => {
@@ -34,7 +37,12 @@ export async function render(main, app) {
       h('label', { class: 'row-main', for: 'news-in-feed' },
         h('span', { class: 'label', text: 'News in the main feed' }),
         h('span', { class: 'hint', text: 'Off: news shows only in Today’s brief and the News tab.' })),
-      newsInFeed)),
+      newsInFeed),
+    h('div', { class: 'row' },
+      h('label', { class: 'row-main', for: 'autoplay-shorts' },
+        h('span', { class: 'label', text: 'Autoplay Shorts' }),
+        h('span', { class: 'hint', text: 'Shorts play muted as you scroll. Off: tap a Short to play it.' })),
+      autoplay)),
   h('section', { class: 'fieldset', 'aria-labelledby': 'set-library' },
     h('h2', { class: 'section-title', id: 'set-library', text: 'Library access' }),
     field('library-id', 'LibKey library ID', libraryId, 'The number in your library’s LibKey links (libkey.io/libraries/NUMBER/…). Used for papers that aren’t open access.')),

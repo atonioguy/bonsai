@@ -144,14 +144,6 @@ a.tab { display: inline-flex; align-items: center; text-decoration: none; }
 .tab-count:empty { display: none; }
 .saved-tabs { margin: calc(-1 * var(--s-4)) calc(-1 * var(--s-4)) var(--s-5); }
 
-.new-pill {
-  position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top) + var(--s-2)); z-index: 3;
-  display: flex; align-items: center; gap: var(--s-2); margin: var(--s-3) auto 0;
-  min-height: var(--control); padding: 0 var(--s-4);
-  border: 0; border-radius: var(--r-md); background: var(--accent); color: var(--accent-ink);
-  font-weight: 700; box-shadow: var(--shadow-1); cursor: pointer;
-}
-.new-pill .icon { transform: rotate(90deg); }
 .earlier { display: flex; align-items: center; gap: var(--s-3); color: var(--text-2); font-size: var(--t-sm); }
 .earlier::before, .earlier::after { content: ""; flex: 1; height: 1px; background: var(--line-strong); }
 
@@ -180,6 +172,13 @@ a.tab { display: inline-flex; align-items: center; text-decoration: none; }
   font-family: var(--font-read); font-size: var(--t-lg); line-height: var(--lh-lg); color: var(--text-2);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
+/* Tags: what a post is about, then what it is. Quiet labels, not buttons. */
+.tags { list-style: none; display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.tags li {
+  padding: 0 var(--s-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--text-2);
+}
+.entry .tags { margin-top: var(--s-1); }
 
 .book-card {
   display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--s-4);
@@ -470,6 +469,29 @@ dialog::backdrop { background: rgba(0, 0, 0, .35); }
   position: absolute; left: var(--s-3); bottom: var(--s-3); display: flex; align-items: center; justify-content: center;
   width: var(--control); height: var(--control); border-radius: var(--r-full); background: var(--surface); color: var(--text);
 }
+.thumb-time {
+  position: absolute; right: var(--s-3); bottom: var(--s-3); padding: 0 var(--s-2);
+  border-radius: var(--r-sm); background: var(--surface); color: var(--text);
+  font-size: var(--t-sm); line-height: var(--lh-sm); font-weight: 700; font-variant-numeric: tabular-nums;
+}
+/* Shorts: tall, and they play right in the feed (one player moves between them, js/shorts.js). */
+.short-slot {
+  position: relative; align-self: flex-start; aspect-ratio: 9 / 16; height: min(70vh, 560px); max-width: 100%;
+  border-radius: var(--r-sm); overflow: hidden; background: var(--surface-warm);
+}
+.short-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.short-play { display: none; border: 0; padding: 0; cursor: pointer; }
+.shorts-on .short-slot { z-index: 1; cursor: pointer; }
+.shorts-on .short-play { display: flex; }
+.shorts-on .short-slot.is-playing .short-play { display: none; }
+.short-layer { position: absolute; z-index: 2; border-radius: var(--r-sm); overflow: hidden; background: #000; }
+.short-frame, .short-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+.short-sound {
+  position: absolute; top: var(--s-2); right: var(--s-2);
+  display: flex; align-items: center; justify-content: center;
+  width: var(--control); height: var(--control); padding: 0;
+  border: 0; border-radius: var(--r-full); background: var(--surface); color: var(--text); cursor: pointer;
+}
 .player { aspect-ratio: 16 / 9; border-radius: var(--r-sm); overflow: hidden; background: #000; margin-top: var(--s-2); }
 .player.is-short { aspect-ratio: 9 / 16; max-height: 70vh; margin-inline: auto; }
 .player iframe { width: 100%; height: 100%; border: 0; display: block; }
@@ -524,3 +546,21 @@ dialog.peek { border: 0; padding: var(--s-4); margin: auto; max-width: none; max
   transition: left var(--dur-2) var(--ease), right var(--dur-2) var(--ease), top var(--dur-2) var(--ease), opacity var(--dur-2) var(--ease);
 }
 .jump.dragging { transition: none; cursor: grabbing; opacity: .9; }
+
+/* ---------- pull to refresh (feed) ---------- */
+.pull {
+  position: fixed; left: 50%; top: calc(var(--bar-h) + env(safe-area-inset-top)); z-index: 4;
+  display: flex; align-items: center; justify-content: center;
+  width: var(--control); height: var(--control); margin-left: calc(var(--control) / -2);
+  border: 1px solid var(--line-strong); border-radius: var(--r-full);
+  background: var(--surface); color: var(--text-2); box-shadow: var(--shadow-1);
+  opacity: 0; pointer-events: none;
+  transform: translateY(calc(var(--pull, 0px) - var(--control)));
+}
+.pull:not(.show) { transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease); }
+.pull.show { opacity: 1; }
+.pull .icon { transform: rotate(var(--turn, 0deg)); }
+.pull.ready { color: var(--accent); }
+.pull.busy .icon { animation: pull-spin 900ms linear infinite; }
+@media (prefers-reduced-motion: reduce) { .pull.busy .icon { animation: none; } }
+@keyframes pull-spin { to { transform: rotate(360deg); } }

@@ -51,7 +51,20 @@ const JATS = `<?xml version="1.0"?><article xmlns:xlink="http://www.w3.org/1999/
 for (const [id, sourceId, sourceName] of [['n1', 'bbc-world', 'BBC World'], ['n2', 'npr-news', 'NPR News'], ['n3', 'the-19th', 'The 19th'], ['n4', 'propublica', 'ProPublica'], ['g1', 'reasons-to-be-cheerful', 'Reasons to be Cheerful']]) {
   items.push({ id, sourceId, sourceName, topic: 'news', kind: 'news', title: 'Sample headline from ' + sourceName, url: 'https://example.org/' + id, published: iso(3), excerpt: 'Sample news summary.', html: '<p>Sample news summary.</p>', audioUrl: '', image: '' });
 }
-items.push({ id: 'v1', sourceId: 'kurzgesagt', sourceName: 'Kurzgesagt', topic: 'science', kind: 'video', videoId: 'abcDEF12345', short: false, title: 'A sample explainer video', url: 'https://www.youtube.com/watch?v=abcDEF12345', published: iso(1.5), excerpt: 'Line one.', html: 'Line one.\nLine two.', audioUrl: '', image: '' });
+items.push({ id: 'v1', sourceId: 'kurzgesagt', sourceName: 'Kurzgesagt', topic: 'science', kind: 'video', videoId: 'abcDEF12345', short: false, length: 754, title: 'A sample explainer video', url: 'https://www.youtube.com/watch?v=abcDEF12345', published: iso(1.5), excerpt: 'Line one.', html: 'Line one.\nLine two.', audioUrl: '', image: '' });
+// two Shorts, and the ADHD paper again from the BPD search (it shows once, with both tags)
+for (const [id, vid, h, sourceId, sourceName] of [['s1', 'shortAAAA01', 20, 'veritasium', 'Veritasium'], ['s2', 'shortBBBB02', 26, 'scishow', 'SciShow']]) {
+  items.push({ id, sourceId, sourceName, topic: 'science', kind: 'video', videoId: vid, short: true, title: 'A sample Short ' + id, url: 'https://www.youtube.com/shorts/' + vid, published: iso(h), excerpt: '', html: '', audioUrl: '', image: '' });
+}
+items.push({ ...items.find((i) => i.id === 'pm-open'), id: 'pm-zdup', sourceId: 'pubmed-alert-borderline-personality', sourceName: 'PubMed alert: borderline personality', url: 'https://pubmed.ncbi.nlm.nih.gov/39797602/?utm_source=Other&fc=2' });
+// A stand-in for YouTube's player API (the real one can't be reached from tests).
+const YT_MOCK = `window.YT = { Player: class {
+  constructor(el, o) { this.o = o; this.id = o.videoId; this.muted = true; const f = document.createElement('iframe'); f.title = 'YouTube'; el.replaceWith(f); window.__yt = this;
+    setTimeout(() => { o.events.onReady({ target: this }); this.set(1); }, 50); }
+  set(s) { this.state = s; this.o.events.onStateChange({ data: s, target: this }); }
+  loadVideoById(id) { this.id = id; this.set(1); } playVideo() { this.set(1); } pauseVideo() { this.set(2); } seekTo() {}
+  mute() { this.muted = true; } unMute() { this.muted = false; } isMuted() { return this.muted; }
+} }; window.onYouTubeIframeAPIReady();`;
 const FEED = { updatedAt: iso(1), items, status: [{ id: 'sample-journal', ok: false, error: 'HTTP 404' }] };
 
 // A tiny EPUB built in memory (deflate, like real EPUBs).
@@ -129,6 +142,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
     if (route.request().method() === 'POST') return route.fulfill({ json: { ok: true } });
     return route.fulfill({ json: FEED, headers: { 'access-control-allow-origin': '*' } });
   });
+  await page.route('https://www.youtube.com/iframe_api', (route) => route.fulfill({ contentType: 'text/javascript', body: YT_MOCK }));
   await page.route('https://sq.test/**', (route) => { focusPosts++; route.fulfill({ json: { id: 'x' }, headers: { 'access-control-allow-origin': '*' } }); });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.abort());
   await page.route('https://www.ebi.ac.uk/**', (route) => {
@@ -160,6 +174,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.fill('#feed-url', 'https://feeds.test/');
   await page.fill('#sq-url', 'https://sq.test');
   await page.fill('#sq-key', 'k');
+  check(await page.isChecked('#autoplay-shorts'), 'Shorts autoplay by default');
   await shot('02-settings');
   check(!(await page.textContent('main')).includes('null'), 'no stray "null" in Settings');
   await page.click('button[type=submit]');
@@ -193,6 +208,28 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   check((await page.textContent('.brief')).includes('Good news'), 'brief includes good news');
   check(!(await page.$('.entry[data-id="n1"]')), 'news stays out of the main feed');
   check(await page.$('.entry[data-id="v1"] .thumb img'), 'video shows a thumbnail');
+  check((await page.textContent('.entry[data-id="v1"] .thumb-time')) === '12:34', 'video shows its length');
+  check(!(await page.$('.entry[data-id="pm-zdup"]')), 'the same paper from two searches shows once');
+  const tagsOf = (id) => page.$$eval(`.entry[data-id="${id}"] .tags li`, (lis) => lis.map((l) => l.textContent));
+  check((await tagsOf('pm-open')).join() === 'ADHD,BPD,Article', 'merged post has both searches\' tags + Article (' + (await tagsOf('pm-open')) + ')');
+  check((await tagsOf('v1')).join() === 'Science,Video', 'video tags');
+
+  // Shorts play in the feed, muted; turning the sound on keeps it on for the next Short
+  const yt = (expr) => page.evaluate((e) => { const p = window.__yt; return p ? Function('p', 'return ' + e)(p) : null; }, expr);
+  const center = (sel) => page.evaluate((s) => document.querySelector(s).scrollIntoView({ block: 'center' }), sel);
+  await center('.entry[data-id="s1"] .short-slot');
+  await page.waitForSelector('.short-layer:not([hidden])');
+  await page.waitForFunction(() => window.__yt && window.__yt.id === 'shortAAAA01');
+  check(await yt('p.muted'), 'a Short starts muted');
+  await shot('04e-short-playing');
+  await page.click('.short-sound');
+  check((await yt('p.muted')) === false, 'sound on');
+  await center('.entry[data-id="s2"] .short-slot');
+  await page.waitForFunction(() => window.__yt.id === 'shortBBBB02');
+  check((await yt('p.muted')) === false, 'the next Short keeps the sound on');
+  check((await page.getAttribute('.short-sound', 'aria-pressed')) === 'true', 'sound button shows on');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForSelector('.short-layer[hidden]', { state: 'attached' });
   await page.click('.tab[data-topic="news"]');
   check(await page.$('.entry[data-id="n1"]'), 'News tab lists news');
   await page.click('.tab[data-topic="all"]');
@@ -283,6 +320,27 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   check((await page.evaluate(() => scrollY)) < 5, 'dragging the jump button does not jump');
   await page.evaluate(() => window.scrollTo(0, 900));
   await shot('05-feed-scrolled');
+
+  // your place in the feed is kept: after another screen, and after the app restarts
+  const topPost = () => page.evaluate(() => {
+    const edge = document.querySelector('.topbar').getBoundingClientRect().bottom;
+    const el = [...document.querySelectorAll('.feed > [data-key]')].find((e) => e.getBoundingClientRect().bottom > edge + 1);
+    return { key: el.dataset.key, y: Math.round(el.getBoundingClientRect().top) };
+  });
+  await page.waitForTimeout(400);
+  const placeBefore = await topPost();
+  await page.goto(BASE + '#/library');
+  await page.waitForSelector('.row-title');
+  await page.goto(BASE + '#/');
+  await page.waitForSelector('.entry');
+  const placeBack = await topPost();
+  check(placeBack.key === placeBefore.key && Math.abs(placeBack.y - placeBefore.y) < 3, `feed place kept after another screen (${JSON.stringify(placeBefore)} → ${JSON.stringify(placeBack)})`);
+  await page.reload();
+  await page.waitForSelector('.entry');
+  await page.waitForTimeout(300);
+  const placeReload = await topPost();
+  check(placeReload.key === placeBefore.key && Math.abs(placeReload.y - placeBefore.y) < 3, `feed place kept after a restart (${JSON.stringify(placeBefore)} → ${JSON.stringify(placeReload)})`);
+  check(await page.getAttribute('.short-sound', 'aria-pressed').catch(() => null) !== 'true', 'sound is off again after a restart');
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.click('.tab:has-text("Mind")');
   check(!(await page.$('.book-card')), 'topic filter hides book card');
@@ -339,6 +397,8 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
 
   // full text: loads for an open-access paper; otherwise offers the browser
   await page.goto(BASE + '#/item/pm-open');
+  await page.waitForSelector('.article-title:has-text("Sample study 39797602")');
+  check((await page.$$eval('.article-head .tags li', (lis) => lis.map((l) => l.textContent))).join() === 'ADHD,BPD,Article', 'tags at the top of an opened post');
   await page.click('button:has-text("Load full article")');
   await page.waitForSelector('.fulltext h2:has-text("Full text")');
   check((await page.textContent('.fulltext')).includes('Methods sample sentence'), 'full text loaded');
@@ -373,24 +433,39 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await shot('06e-recent');
   await page.keyboard.press('Escape');
 
-  // feed: opened posts marked; new posts counted per tab + button when scrolled
+  // feed: opened posts marked; new posts only come in when you refresh
   await page.goto(BASE + '#/');
   await page.waitForSelector('.entry');
   check(await page.$('.entry.is-read'), 'opened post marked read');
   for (let i = 0; i < 3; i++) {
-    FEED.items.push({ ...FEED.items.at(-1), id: `new${w}-${i}`, sourceId: 'gen-0', topic: 'mind', title: 'New sample ' + i, published: new Date().toISOString() });
+    FEED.items.push({ ...FEED.items.find((x) => x.id === 'gen8'), id: `new${w}-${i}`, sourceId: 'gen-0', topic: 'mind', title: 'New sample ' + i, url: `https://example.org/new/${w}/${i}`, published: new Date().toISOString() });
   }
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const firstBefore = await page.textContent('.entry-title');
   await page.click('.feed-end button:has-text("Refresh")');
-  await page.waitForSelector('.new-pill:not([hidden])');
-  check((await page.textContent('.new-pill')).includes('3 new articles'), 'new articles button');
-  check((await page.textContent('.tab[data-topic="mind"] .tab-count')) === '3', 'per-topic new count');
-  await shot('05b-new-pill');
-  await page.click('.new-pill');
-  await page.waitForSelector('.earlier');
-  await page.waitForTimeout(700);
-  check((await page.textContent('.entry-title')).startsWith('New sample'), 'new posts on top');
-  await shot('05c-new-top');
+  await page.waitForSelector('.earlier:has-text("New")');
+  const afterNew = await page.$$eval('.feed > *', (els) => { const i = els.findIndex((e) => e.textContent === 'New'); return els.slice(i + 1).filter((e) => e.classList.contains('entry')).map((e) => e.querySelector('.entry-title').textContent); });
+  check(afterNew.length === 3 && afterNew.every((t) => t.startsWith('New sample')), 'Refresh at the end adds the new posts below (' + afterNew + ')');
+  check((await page.textContent('.entry-title')) === firstBefore, 'the top of the feed stays as it was');
+  check((await page.evaluate(() => scrollY)) > 400, 'Refresh at the end doesn’t jump to the top');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await shot('05b-refresh-end');
+  await page.click('.feed-end button:has-text("Refresh")');
+  await page.waitForSelector('.feed-end .meta:has-text("No new posts")');
+  // pull down at the top: a new order, with the newest first
+  FEED.items.push({ ...FEED.items.find((x) => x.id === 'gen8'), id: `pulled${w}`, sourceId: 'gen-1', topic: 'tao', title: 'Pulled sample ' + w, url: `https://example.org/pulled/${w}`, published: new Date().toISOString() });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.evaluate(() => {
+    const t = (y) => new Touch({ identifier: 1, target: document.body, clientX: 150, clientY: y });
+    const fire = (type, y) => document.body.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === 'touchend' ? [] : [t(y)], changedTouches: [t(y)] }));
+    fire('touchstart', 150);
+    for (let i = 1; i <= 10; i++) fire('touchmove', 150 + i * 20);
+    fire('touchend', 350);
+  });
+  await page.waitForFunction((w) => document.querySelector('.entry-title')?.textContent === 'Pulled sample ' + w, w);
+  check(await page.$('.earlier:has-text("Earlier")'), 'posts already seen go below "Earlier"');
+  await page.waitForTimeout(500);
+  await shot('05c-pulled');
 
   // reading list item comes back into the feed when due, and leaves only when you say so
   await page.evaluate(async () => {
@@ -400,6 +475,8 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
     await db.put('posts', 'gen0', p);
   });
   await page.goto(BASE + '#/collections');
+  await dbCall('del', 'kv', 'feedView'); // it comes back with the next refresh (here: a restart without a saved order)
+  await page.reload();
   await page.goto(BASE + '#/');
   await page.waitForSelector('.listed');
   await page.goto(BASE + '#/collections/list');
@@ -462,6 +539,22 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.waitForSelector('svg.bonsai');
   check((await page.textContent('.stage-name')) !== 'Seed', 'bonsai has grown past a seed');
   await shot('17-bonsai');
+
+  // Shorts with autoplay off: nothing plays until you tap one
+  await page.goto(BASE + '#/settings');
+  await page.click('label[for="autoplay-shorts"]');
+  await page.waitForFunction(async () => { const db = await import('/js/db.js'); return (await db.settings()).autoplayShorts === false; });
+  await page.goto(BASE + '#/');
+  await page.waitForSelector('.entry[data-id="s1"]');
+  await center('.entry[data-id="s1"] .short-slot');
+  await page.waitForTimeout(600);
+  check(await page.$('.short-layer[hidden]') || !(await page.$('.short-layer')), 'no autoplay when it’s off');
+  await page.click('.entry[data-id="s1"] .short-play');
+  await page.waitForSelector('.short-layer:not([hidden])');
+  await page.waitForFunction(() => window.__yt && window.__yt.id === 'shortAAAA01');
+  check(await yt('p.muted'), 'a tapped Short starts muted after a restart');
+  await shot('04f-short-tapped');
+  await page.evaluate(() => window.scrollTo(0, 0));
 
   // 8. dark theme (Settings → Appearance)
   await page.goto(BASE + '#/settings');

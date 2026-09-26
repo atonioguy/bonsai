@@ -83,7 +83,15 @@ engagement numbers, and no metadata rows.
     Tech & society, Tao, News, Nearby.
   - **Today's brief**: the once-a-day card of five news stories, one of them
     good news. News stays out of the main feed unless switched on in Settings.
-  - **Video** / **Short**: YouTube posts, played in the app.
+  - **Video** / **Short**: YouTube posts, played in the app. Shorts play right
+    in the feed (Settings → Autoplay Shorts), muted until you turn the sound
+    on.
+  - **Tags**: a post's labels, what it's about (a source's `tags` in
+    sources.json, else its topic) then what it is: Article, Video, Short or
+    Podcast. The same article from two feeds is one post with both feeds' tags.
+  - **Refresh**: new posts come in only when you ask. Pull down at the top for
+    a new order (new posts first), or tap Refresh at the end to add them below.
+    Otherwise the feed keeps its order and your place.
   - **Hidden post**: a post you hid, collapsed to one line with **Show**.
   - The **Reading list** tab in the feed is the reading list as its own feed.
   - **Source**: a journal, newsletter, podcast or site.
@@ -220,8 +228,10 @@ decide, or act. Otherwise cut it.
     own queue coming back around).
   - Today's brief (outlined, on paper): a daily digest, not a post.
   - Floating layers: Save quote bar, toasts, the Aa popover, bottom sheets,
-    the Recently opened drawer, the long-press preview + action menu, and the
-    movable jump button (round is fine: it's a genuinely round control).
+    the Recently opened drawer, the long-press preview + action menu, the
+    movable jump button (round is fine: it's a genuinely round control), the
+    pull-to-refresh arrow (round, only while pulling), and the Short player
+    over a Short in the feed with its round sound button.
   - Swipe actions: swiping a feed post left reveals two square buttons on its
     right edge, Reading list (glasses, `--accent`) and Hide (crossed-out eye,
     `--surface-warm`). They're icon-only because they repeat the long-press
@@ -229,7 +239,11 @@ decide, or act. Otherwise cut it.
 
   Posts in the feed are separated by a hairline (`--line`), not boxes. Opened
   posts get a quieter title plus the word "Opened" in the meta line. Holding a
-  post never selects its text: the hold opens the preview instead.
+  post never selects its text: the hold opens the preview instead. A post ends
+  with one row of tags: small `--text-2` labels outlined in `--line-strong`,
+  `--r-sm` corners, not buttons. An opened post shows the same row above its
+  title. A video's length sits on its thumbnail's corner. Shorts are tall
+  (9:16, at most 70% of the screen height).
 
   Articles sit directly on the page. No cards inside cards.
 - **Empty space:** whitespace is intentional, so don't fill it with UI. If a
@@ -239,7 +253,7 @@ decide, or act. Otherwise cut it.
   reads as placed, not leftover.
 - **Lists:** favor rhythm and spacing over separators. No feed-style rows packed
   with timestamps, counters, and metadata. A feed entry has at most one meta
-  line (source · age).
+  line (source · age) and one row of tags (the owner asked for them).
 - **Structure:** a single reading column, 640px max. On phone the nav sits at
   the bottom; on desktop it sits in the top bar. No sidebars, competing columns
   or dashboard grids.
@@ -277,6 +291,10 @@ Animate for a reason:
 
 Not: constant floating, pulsing, bouncing, ambient particles, heavy hover
 effects, or anything that delays an action.
+
+Autoplaying Shorts are the one exception to "no constant motion": the owner
+asked for them, and they're a switch in Settings. When the phone asks for
+reduced motion they start switched off.
 
 Respect `prefers-reduced-motion` by reducing animation to simple fades or none.
 The app must be fully usable if all animation is ignored.

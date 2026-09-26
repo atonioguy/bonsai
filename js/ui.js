@@ -54,6 +54,9 @@ const ICONS = {
   hide: `<path ${STROKE} d="M4 12s3-6 8-6c1.6 0 3 .5 4.2 1.3M20 12s-3 6-8 6c-1.6 0-3-.5-4.2-1.3"/><path ${STROKE} d="M5 19L19 5"/>`,
   arrowDown: `<path ${STROKE} d="M12 5v14M6 13l6 6 6-6"/>`,
   arrowUp: `<path ${STROKE} d="M12 19V5M6 11l6-6 6 6"/>`,
+  refresh: `<path ${STROKE} d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path ${STROKE} d="M19.5 4.5v4h-4"/>`,
+  soundOn: `<path ${STROKE} d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path ${STROKE} d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10"/>`,
+  soundOff: `<path ${STROKE} d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path ${STROKE} d="M16 10l4 4M20 10l-4 4"/>`,
 };
 
 // Reactions: private, one per article, drawn in the bonsai world (no emoji).

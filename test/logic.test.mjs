@@ -180,3 +180,53 @@ test('serverHealth: stalled when sources are missing and nothing updated for 20+
   assert.equal(serverHealth([{ id: 'a', fetchedAt: now - 3 * 3600e3 }], 1, now).stalled, false, 'all loaded: fine');
   assert.equal(serverHealth([], 3, now).stalled, true);
 });
+
+import { dupKey, mergeDuplicates, postTags, formatLength, normalizeFeed, seenOf } from '../js/logic.js';
+
+test('mergeDuplicates: the same PubMed article from two searches becomes one post', () => {
+  const a = { id: 'x2', sourceId: 'pm-adhd', topic: 'mind', url: 'https://pubmed.ncbi.nlm.nih.gov/41000322/?utm_source=Other&fc=1&ff=2&v=2.18', title: 'T', html: '<p>short</p>' };
+  const b = { id: 'x1', sourceId: 'pm-bpd', topic: 'mind', url: 'https://pubmed.ncbi.nlm.nih.gov/41000322/?utm_source=Other&fc=9&ff=8&v=2.18', title: 'T', html: '<p>a longer abstract</p>' };
+  const c = { id: 'c', sourceId: 'essays', topic: 'tao', url: 'https://example.org/post?utm_source=rss', title: 'Other' };
+  assert.equal(dupKey(a), 'pmid:41000322');
+  assert.equal(dupKey(c), 'url:example.org/post');
+  const out = mergeDuplicates([a, b, c]);
+  assert.equal(out.length, 2);
+  const m = out.find((i) => i.id === 'x1');
+  assert.deepEqual(m.sourceIds, ['pm-bpd', 'pm-adhd']);
+  assert.deepEqual(m.dupIds, ['x2']);
+  assert.equal(m.html, '<p>a longer abstract</p>');
+  assert.equal(out.find((i) => i.id === 'c').sourceIds, undefined, 'single posts stay as they are');
+  // a DOI cited in the text doesn't make two different essays "the same"
+  const d1 = { id: 'd1', sourceId: 's', url: 'https://a.org/1', html: 'see 10.1000/xyz' };
+  const d2 = { id: 'd2', sourceId: 't', url: 'https://b.org/2', html: 'see 10.1000/xyz' };
+  assert.equal(mergeDuplicates([d1, d2]).length, 2);
+  assert.equal(normalizeFeed({ sources: [{ id: 's', items: [a] }, { id: 't', items: [b] }] }).items.length, 1);
+});
+
+test('merged posts count for every topic and are muted only when all their sources are', () => {
+  const m = { id: 'm', sourceId: 'a', sourceIds: ['a', 'b'], topic: 'mind', topics: ['mind', 'trans'], dupIds: ['m2'], published: new Date(T0).toISOString() };
+  assert.deepEqual(mixFeed([m], { topic: 'trans' }).map((i) => i.id), ['m']);
+  assert.equal(mixFeed([m], { muted: new Set(['a']) }).length, 1);
+  assert.equal(mixFeed([m], { muted: new Set(['a', 'b']) }).length, 0);
+  assert.deepEqual(newCounts([m], {}, new Set()).byTopic, { mind: 1, trans: 1 });
+  assert.equal(seenOf({ m2: 1 }, m), true, 'seen under the other feed\'s id');
+});
+
+test('postTags: source tags (or the topic), then the kind of post', () => {
+  const config = {
+    topics: [{ id: 'mind', name: 'Mind' }, { id: 'science', name: 'Science' }],
+    sources: [{ id: 'adhd', topic: 'mind', tags: ['ADHD'] }, { id: 'bpd', topic: 'mind', tags: ['BPD'] }, { id: 'k', topic: 'science' }],
+  };
+  assert.deepEqual(postTags({ sourceId: 'adhd', sourceIds: ['adhd', 'bpd'], kind: 'research' }, config), ['ADHD', 'BPD', 'Article']);
+  assert.deepEqual(postTags({ sourceId: 'k', topic: 'science', videoId: 'v', short: true }, config), ['Science', 'Short']);
+  assert.deepEqual(postTags({ sourceId: 'k', topic: 'science', videoId: 'v' }, config), ['Science', 'Video']);
+  assert.deepEqual(postTags({ sourceId: 'gone', topic: 'mind', kind: 'audio' }, config), ['Mind', 'Podcast']);
+});
+
+test('formatLength', () => {
+  assert.equal(formatLength(754), '12:34');
+  assert.equal(formatLength(59), '0:59');
+  assert.equal(formatLength(3723), '1:02:03');
+  assert.equal(formatLength(0), '');
+  assert.equal(formatLength(undefined), '');
+});

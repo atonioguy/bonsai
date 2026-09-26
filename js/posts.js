@@ -9,10 +9,14 @@ import * as db from './db.js';
 import { newListEntry } from './logic.js';
 
 const SNAPSHOT_KEYS = ['id', 'sourceId', 'sourceName', 'topic', 'kind', 'title', 'url', 'published', 'excerpt', 'html', 'audioUrl', 'image'];
+const OPTIONAL_KEYS = ['videoId', 'short', 'length', 'sourceIds', 'topics', 'dupIds']; // only when the item has them
 const OPENED_CAP = 3000;
 const SEEN_CAP = 6000;
 
-const snapshot = (item) => Object.fromEntries(SNAPSHOT_KEYS.map((k) => [k, item[k] ?? '']));
+const snapshot = (item) => ({
+  ...Object.fromEntries(SNAPSHOT_KEYS.map((k) => [k, item[k] ?? ''])),
+  ...Object.fromEntries(OPTIONAL_KEYS.filter((k) => item[k] != null).map((k) => [k, item[k]])),
+});
 const blank = (item) => ({ id: item.id, item: snapshot(item), openedAt: 0, scroll: 0, bookmark: null, list: null, reaction: null, notes: [] });
 
 export async function getPost(id) {
@@ -47,6 +51,7 @@ export async function markOpened(item) {
   await update(item, (p) => { p.openedAt = now; });
   const map = await openedMap();
   map[item.id] = now;
+  for (const id of item.dupIds || []) map[id] = now; // the same article from another feed
   const ids = Object.keys(map);
   if (ids.length > OPENED_CAP) ids.sort((a, b) => map[a] - map[b]).slice(0, ids.length - OPENED_CAP).forEach((k) => delete map[k]);
   await db.put('kv', 'opened', map);
@@ -123,9 +128,9 @@ export function saveScroll(item, ratio) {
 // ---------- read / unread by hand ----------
 export async function markUnread(id) {
   const map = await openedMap();
-  delete map[id];
-  await db.put('kv', 'opened', map);
   const p = await getPost(id);
+  for (const k of [id, ...(p?.item.dupIds || [])]) delete map[k];
+  await db.put('kv', 'opened', map);
   if (p) { p.openedAt = 0; await savePost(p); }
 }
 
