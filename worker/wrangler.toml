@@ -1,0 +1,20 @@
+name = "bonsai-feeds"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Rebuild the feed every 2 hours.
+[triggers]
+crons = ["17 */2 * * *"]
+
+[vars]
+# Where the worker reads the source list. Editing sources.json on main is enough;
+# no redeploy needed.
+SOURCES_URL = "https://atonioguy.github.io/bonsai/sources.json"
+# Lock to the app's origin once it works.
+ALLOW_ORIGIN = "https://atonioguy.github.io"
+
+# Create once:  npx wrangler kv namespace create FEEDS
+# then paste the printed id below and deploy.
+[[kv_namespaces]]
+binding = "FEEDS"
+id = "PASTE_KV_NAMESPACE_ID_HERE"

@@ -1,40 +1,238 @@
 {
   "_note": "Starter sources for Bonsai. 'verified: false' means the feed URL came from search results or the site's usual pattern and hasn't been opened yet; the feed worker checks each one on first fetch. 'feed: null' means we still need to find the URL.",
-  "branches": [
-    { "id": "mind", "name": "Mind", "about": "Psychiatry & psychology: ADHD, BPD, depressive and anxiety disorders" },
-    { "id": "trans", "name": "Trans health", "about": "Trans healthcare research and news" },
-    { "id": "queer-history", "name": "Queer history", "about": "LGBTQ history, archives, oral histories" },
-    { "id": "tech-society", "name": "Tech & society", "about": "Anthropology; how the internet, AI and technology change how we live" },
-    { "id": "tao", "name": "Tao", "about": "Taoism, contemplative philosophy, wellbeing" }
+  "topics": [
+    {
+      "id": "mind",
+      "name": "Mind",
+      "about": "Psychiatry & psychology: ADHD, BPD, depressive and anxiety disorders"
+    },
+    {
+      "id": "trans",
+      "name": "Trans health",
+      "about": "Trans healthcare research and news"
+    },
+    {
+      "id": "queer-history",
+      "name": "Queer history",
+      "about": "LGBTQ history, archives, oral histories"
+    },
+    {
+      "id": "tech-society",
+      "name": "Tech & society",
+      "about": "Anthropology; how the internet, AI and technology change how we live"
+    },
+    {
+      "id": "tao",
+      "name": "Tao",
+      "about": "Taoism, contemplative philosophy, wellbeing"
+    }
   ],
   "sources": [
-    { "branch": "mind", "name": "PubMed alert: adult ADHD", "kind": "research", "site": "https://pubmed.ncbi.nlm.nih.gov/", "feed": null, "verified": false, "todo": "Create in PubMed (see PLAN.md → PubMed searches) and paste the RSS link here" },
-    { "branch": "mind", "name": "PubMed alert: borderline personality", "kind": "research", "site": "https://pubmed.ncbi.nlm.nih.gov/", "feed": null, "verified": false, "todo": "Create in PubMed" },
-    { "branch": "mind", "name": "PubMed alert: depression & anxiety reviews", "kind": "research", "site": "https://pubmed.ncbi.nlm.nih.gov/", "feed": null, "verified": false, "todo": "Create in PubMed" },
-    { "branch": "mind", "name": "Borderline Personality Disorder and Emotion Dysregulation (open access)", "kind": "research", "site": "https://link.springer.com/journal/40479", "feed": "https://link.springer.com/search.rss?facet-journal-id=40479&facet-content-type=Article", "verified": false },
-    { "branch": "mind", "name": "Psyche", "kind": "essay", "site": "https://psyche.co/", "feed": "https://psyche.co/feed", "verified": false },
-    { "branch": "mind", "name": "Astral Codex Ten", "kind": "substack", "site": "https://www.astralcodexten.com/", "feed": "https://www.astralcodexten.com/feed", "verified": false },
-
-    { "branch": "trans", "name": "International Journal of Transgender Health", "kind": "research", "site": "https://www.tandfonline.com/journals/wijt21", "feed": "https://www.tandfonline.com/feed/rss/wijt21", "verified": false },
-    { "branch": "trans", "name": "Transgender Health", "kind": "research", "site": "https://journals.sagepub.com/home/trg", "feed": "https://journals.sagepub.com/action/showFeed?jc=trg&type=etoc&feed=rss", "verified": false },
-    { "branch": "trans", "name": "PubMed alert: trans & gender-affirming care", "kind": "research", "site": "https://pubmed.ncbi.nlm.nih.gov/", "feed": null, "verified": false, "todo": "Create in PubMed" },
-    { "branch": "trans", "name": "Erin in the Morning", "kind": "substack", "site": "https://www.erininthemorning.com/", "feed": "https://www.erininthemorning.com/feed", "verified": false },
-
-    { "branch": "queer-history", "name": "Nursing Clio", "kind": "essay", "site": "https://nursingclio.org/", "feed": "https://nursingclio.org/feed/", "verified": false },
-    { "branch": "queer-history", "name": "Making Gay History", "kind": "audio", "site": "https://makinggayhistory.org/", "feed": "https://feeds.megaphone.fm/makinggayhistory", "verified": false },
-    { "branch": "queer-history", "name": "JSTOR Daily", "kind": "essay", "site": "https://daily.jstor.org/", "feed": "https://daily.jstor.org/feed/", "verified": false },
-
-    { "branch": "tech-society", "name": "SAPIENS", "kind": "essay", "site": "https://www.sapiens.org/", "feed": "https://www.sapiens.org/feed/", "verified": false },
-    { "branch": "tech-society", "name": "The Convivial Society", "kind": "substack", "site": "https://theconvivialsociety.substack.com/", "feed": "https://theconvivialsociety.substack.com/feed", "verified": false },
-    { "branch": "tech-society", "name": "Garbage Day", "kind": "newsletter", "site": "https://www.garbageday.email/", "feed": null, "verified": false, "todo": "Moved off Substack; find its current feed" },
-    { "branch": "tech-society", "name": "Pew Research: Internet & Technology", "kind": "research", "site": "https://www.pewresearch.org/internet/", "feed": "https://www.pewresearch.org/internet/feed/", "verified": false },
-    { "branch": "tech-society", "name": "After Babel", "kind": "substack", "site": "https://www.afterbabel.com/", "feed": "https://www.afterbabel.com/feed", "verified": false, "note": "Its argument is contested; read alongside its critics" },
-
-    { "branch": "tao", "name": "Greater Good Magazine", "kind": "essay", "site": "https://greatergood.berkeley.edu/", "feed": null, "verified": false, "todo": "Find the articles feed (a podcast feed exists at /site/rss/podcasts)" },
-    { "branch": "tao", "name": "The Marginalian", "kind": "essay", "site": "https://www.themarginalian.org/", "feed": "https://www.themarginalian.org/feed/", "verified": false }
+    {
+      "id": "pubmed-alert-adult-adhd",
+      "topic": "mind",
+      "name": "PubMed alert: adult ADHD",
+      "kind": "research",
+      "site": "https://pubmed.ncbi.nlm.nih.gov/",
+      "feed": "https://pubmed.ncbi.nlm.nih.gov/rss/search/10mYP7P18fg70qC2_VjTfi-lmh4KxcAN_dA7-6LJRuULRiRYi0/?limit=15&utm_campaign=pubmed-2&fc=20260926005205",
+      "verified": false,
+      "note": "Made by the owner in PubMed"
+    },
+    {
+      "id": "pubmed-alert-borderline-personality",
+      "topic": "mind",
+      "name": "PubMed alert: borderline personality",
+      "kind": "research",
+      "site": "https://pubmed.ncbi.nlm.nih.gov/",
+      "feed": "https://pubmed.ncbi.nlm.nih.gov/rss/search/1JCQdWPbmm1p3iyvMMEDqvcPoRROOBRUgrmS3zxUdqB1sumowf/?limit=15&utm_campaign=pubmed-2&fc=20260926005247",
+      "verified": false,
+      "note": "Made by the owner in PubMed"
+    },
+    {
+      "id": "pubmed-alert-depression-anxiety-reviews",
+      "topic": "mind",
+      "name": "PubMed alert: depression & anxiety reviews",
+      "kind": "research",
+      "site": "https://pubmed.ncbi.nlm.nih.gov/",
+      "feed": "https://pubmed.ncbi.nlm.nih.gov/rss/search/1xSjLNP-2lGFmiJBi0MFH2qXUvIeSF_fcw2bQazUwtTMFacQe3/?limit=15&utm_campaign=pubmed-2&fc=20260926005309",
+      "verified": false,
+      "note": "Made by the owner in PubMed"
+    },
+    {
+      "id": "borderline-personality-disorder-and-emotion-dysr",
+      "topic": "mind",
+      "name": "Borderline Personality Disorder and Emotion Dysregulation (open access)",
+      "kind": "research",
+      "site": "https://link.springer.com/journal/40479",
+      "feed": "https://link.springer.com/search.rss?facet-journal-id=40479&facet-content-type=Article",
+      "verified": false
+    },
+    {
+      "id": "psyche",
+      "topic": "mind",
+      "name": "Psyche",
+      "kind": "essay",
+      "site": "https://psyche.co/",
+      "feed": "https://psyche.co/feed",
+      "verified": false
+    },
+    {
+      "id": "astral-codex-ten",
+      "topic": "mind",
+      "name": "Astral Codex Ten",
+      "kind": "substack",
+      "site": "https://www.astralcodexten.com/",
+      "feed": "https://www.astralcodexten.com/feed",
+      "verified": false
+    },
+    {
+      "id": "international-journal-of-transgender-health",
+      "topic": "trans",
+      "name": "International Journal of Transgender Health",
+      "kind": "research",
+      "site": "https://www.tandfonline.com/journals/wijt21",
+      "feed": "https://www.tandfonline.com/feed/rss/wijt21",
+      "verified": false
+    },
+    {
+      "id": "transgender-health",
+      "topic": "trans",
+      "name": "Transgender Health",
+      "kind": "research",
+      "site": "https://journals.sagepub.com/home/trg",
+      "feed": "https://journals.sagepub.com/action/showFeed?jc=trg&type=etoc&feed=rss",
+      "verified": false
+    },
+    {
+      "id": "pubmed-alert-trans-gender-affirming-care",
+      "topic": "trans",
+      "name": "PubMed alert: trans & gender-affirming care",
+      "kind": "research",
+      "site": "https://pubmed.ncbi.nlm.nih.gov/",
+      "feed": "https://pubmed.ncbi.nlm.nih.gov/rss/search/1rqWJDUT0WQSzErrGQaty5pltfvary-z010pkpuX1T2uSeNwg2/?limit=15&utm_campaign=pubmed-2&fc=20260926005331",
+      "verified": false,
+      "note": "Made by the owner in PubMed"
+    },
+    {
+      "id": "erin-in-the-morning",
+      "topic": "trans",
+      "name": "Erin in the Morning",
+      "kind": "substack",
+      "site": "https://www.erininthemorning.com/",
+      "feed": "https://www.erininthemorning.com/feed",
+      "verified": false
+    },
+    {
+      "id": "nursing-clio",
+      "topic": "queer-history",
+      "name": "Nursing Clio",
+      "kind": "essay",
+      "site": "https://nursingclio.org/",
+      "feed": "https://nursingclio.org/feed/",
+      "verified": false
+    },
+    {
+      "id": "making-gay-history",
+      "topic": "queer-history",
+      "name": "Making Gay History",
+      "kind": "audio",
+      "site": "https://makinggayhistory.org/",
+      "feed": "https://feeds.megaphone.fm/makinggayhistory",
+      "verified": false
+    },
+    {
+      "id": "jstor-daily",
+      "topic": "queer-history",
+      "name": "JSTOR Daily",
+      "kind": "essay",
+      "site": "https://daily.jstor.org/",
+      "feed": "https://daily.jstor.org/feed/",
+      "verified": false
+    },
+    {
+      "id": "sapiens",
+      "topic": "tech-society",
+      "name": "SAPIENS",
+      "kind": "essay",
+      "site": "https://www.sapiens.org/",
+      "feed": "https://www.sapiens.org/feed/",
+      "verified": false
+    },
+    {
+      "id": "the-convivial-society",
+      "topic": "tech-society",
+      "name": "The Convivial Society",
+      "kind": "substack",
+      "site": "https://theconvivialsociety.substack.com/",
+      "feed": "https://theconvivialsociety.substack.com/feed",
+      "verified": false
+    },
+    {
+      "id": "garbage-day",
+      "topic": "tech-society",
+      "name": "Garbage Day",
+      "kind": "newsletter",
+      "site": "https://www.garbageday.email/",
+      "feed": null,
+      "verified": false,
+      "todo": "Moved off Substack; find its current feed"
+    },
+    {
+      "id": "pew-research-internet-technology",
+      "topic": "tech-society",
+      "name": "Pew Research: Internet & Technology",
+      "kind": "research",
+      "site": "https://www.pewresearch.org/internet/",
+      "feed": "https://www.pewresearch.org/internet/feed/",
+      "verified": false
+    },
+    {
+      "id": "after-babel",
+      "topic": "tech-society",
+      "name": "After Babel",
+      "kind": "substack",
+      "site": "https://www.afterbabel.com/",
+      "feed": "https://www.afterbabel.com/feed",
+      "verified": false,
+      "note": "Its argument is contested; read alongside its critics"
+    },
+    {
+      "id": "greater-good-magazine",
+      "topic": "tao",
+      "name": "Greater Good Magazine",
+      "kind": "essay",
+      "site": "https://greatergood.berkeley.edu/",
+      "feed": null,
+      "verified": false,
+      "todo": "Find the articles feed (a podcast feed exists at /site/rss/podcasts)"
+    },
+    {
+      "id": "the-marginalian",
+      "topic": "tao",
+      "name": "The Marginalian",
+      "kind": "essay",
+      "site": "https://www.themarginalian.org/",
+      "feed": "https://www.themarginalian.org/feed/",
+      "verified": false
+    }
   ],
   "books": [
-    { "branch": "tao", "title": "Tao Te Ching", "author": "Lao-tse", "translator": "James Legge", "source": "https://www.gutenberg.org/ebooks/216", "license": "public domain", "note": "81 short chapters; the natural first book" },
-    { "branch": "tao", "title": "Chuang Tzu: Mystic, Moralist, and Social Reformer", "author": "Zhuangzi", "translator": "Herbert A. Giles", "source": "https://www.gutenberg.org/ebooks/59709", "license": "public domain" }
+    {
+      "topic": "tao",
+      "title": "Tao Te Ching",
+      "author": "Lao-tse",
+      "translator": "James Legge",
+      "source": "https://www.gutenberg.org/ebooks/216",
+      "license": "public domain",
+      "note": "81 short chapters; the natural first book"
+    },
+    {
+      "topic": "tao",
+      "title": "Chuang Tzu: Mystic, Moralist, and Social Reformer",
+      "author": "Zhuangzi",
+      "translator": "Herbert A. Giles",
+      "source": "https://www.gutenberg.org/ebooks/59709",
+      "license": "public domain"
+    }
   ]
 }

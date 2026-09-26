@@ -5,8 +5,12 @@ cards, an endless scroll, something new every time) but fills the feed with
 research, essays, history, audio and your own books. The scroll should leave you
 knowing more instead of feeling worse.
 
-Status: **design stage.** Nothing is built yet. The first look is on the design
-canvas: https://claude.ai/artifact/LMQpZUb8NpK9yZCU77PUkx (private to the owner).
+Status: **v0.1 built, not deployed yet.** Steps 1–7 of the build order below
+are in the code and pass the tests. Going live needs two owner steps (see
+"Going live"). The first design canvas is at
+https://claude.ai/artifact/LMQpZUb8NpK9yZCU77PUkx (private to the owner). The
+built app follows `DESIGN.md`, which supersedes that mockup's rounder cards and
+branded copy.
 
 ---
 
@@ -25,21 +29,22 @@ canvas: https://claude.ai/artifact/LMQpZUb8NpK9yZCU77PUkx (private to the owner)
 
 1. **The feed.** Short-first cards: an abstract, an excerpt, a quote, a clip.
    Tap a card to open the full paper, essay, episode or chapter.
-2. **Branches.** Topics are the tree's branches (Mind, Trans health, Queer
-   history, Tech & society, Tao). Filter the feed by branch. Unfollowing is
-   pruning.
+2. **Topics.** Mind, Trans health, Queer history, Tech & society and Tao.
+   Filter the feed by topic, and switch sources off in Library. On the Saved
+   screen each topic is a branch of the bonsai, but UI copy stays plain (see
+   DESIGN.md §2).
 3. **Books in the feed.** An uploaded EPUB is split into ~15-minute sessions.
    A "Continue reading" card shows up in the scroll, and tapping it opens a
    quiet reading mode that remembers your place.
-4. **Leaves.** Highlight a line or write a one-line takeaway to save a leaf to
-   that branch.
+4. **Saved quotes.** Select text in an article or book and tap **Save quote**.
+   You can also add a one-line takeaway after a session.
 5. **Throwbacks, not quizzes.** Saved leaves come back later as quote cards.
    Nothing to answer, nothing graded. The spacing grows quietly in the
    background (about 3 days, 10 days, 1 month, 3 months, 6 months).
-6. **Connections.** When a new card relates to a leaf you saved, it says so
-   ("Connects to the ADHD paper you saved in March").
-7. **Weekly recap.** The garden screen shows what you read and saved this
-   week, plus what's about to resurface.
+6. **Connections (later).** When a new card relates to a quote you saved, it
+   says so ("Related to a quote you saved in March").
+7. **Weekly recap.** The Saved screen shows the tree, counts by topic, and this
+   week's minutes, sessions and saves.
 
 ## Incentive: Side Quest
 
@@ -53,9 +58,12 @@ so Side Quest itself needs no change.
   that worker's `ALLOW_ORIGIN` accepts Bonsai either way.
 - Bonsai stores the worker key on the phone only, entered once in settings.
   It is never committed.
-- A session only counts if you actually read during it (time on the page plus
-  scrolling). An optional "What stuck?" line at the end saves as a leaf.
-- Reward depth (finishing a session, saving a leaf), never volume (cards
+- The session clock only runs while the page is open and you've touched,
+  scrolled or typed in the last 90 seconds. An optional takeaway at the end is
+  saved as a note.
+- Only finished sessions are logged, and the record covers the minutes actually
+  read. If Side Quest can't be reached, Bonsai retries the next time it opens.
+- Reward depth (finishing a session, saving a quote), never volume (cards
   scrolled).
 
 ## Feed mix
@@ -86,7 +94,7 @@ couldn't open them because of its network settings. The worker checks each one
 on first fetch. Still to find: Garbage Day's current feed and Greater Good's
 articles feed.
 
-### PubMed searches (your homework)
+### PubMed searches (done: the four feeds are in sources.json)
 
 PubMed turns any search into a feed. For each search below: open
 pubmed.ncbi.nlm.nih.gov, paste the query and run it. Click **Create RSS** under
@@ -133,20 +141,35 @@ takeaways.
 
 ## Build order (first version)
 
-1. App shell: feed, library, garden and settings; installable PWA; palette and
-   type.
-2. `bonsai-feeds` worker: fetch `sources.json` feeds on a schedule, normalize
-   them to cards, serve `/feed`.
-3. Feed screen: cards, branch filter, open the full item.
-4. Books: EPUB upload, split into sessions, reading mode with the ensō timer.
-5. Leaves and throwbacks: highlight to save, resurfacing schedule, throwback
-   cards.
-6. Side Quest bridge: a finished session writes the TickTick focus record.
-7. Garden screen: the tree by branch, weekly recap, "Resurfacing soon."
+1. ✅ App shell: Feed, Library, Saved and Settings; installable PWA; tokens.
+2. ✅ `bonsai-feeds` worker: fetches `sources.json` feeds every 2 h and
+   serves `/feed`.
+3. ✅ Feed: entries, topic filter, article view, "Open original", audio player.
+4. ✅ Books: EPUB upload, reader with the ensō session timer, progress saved.
+5. ✅ Saved quotes and throwbacks: select to save, resurfacing schedule.
+6. ✅ Side Quest bridge: a finished session writes a TickTick focus record.
+7. ✅ Saved screen: the tree by topic and the weekly recap.
+
+Next:
+- Connections between new items and saved quotes.
+- Dark mode for night reading.
+- A cross-device backup of saved quotes (right now: Export/Import in Settings).
+- An optional "You're caught up" daily stopping point.
+
+## Going live (owner steps)
+
+1. **Merge to `main` and turn on GitHub Pages:** repo **Settings → Pages →
+   Build and deployment → Deploy from a branch → `main` / root**. The app
+   appears at `https://atonioguy.github.io/bonsai/`.
+2. **Deploy the feed worker:** follow `worker/README.md` (about 10 min), then
+   paste its URL into Bonsai → Settings → Feed server URL.
+3. **Optional, Side Quest:** in Bonsai → Settings → Side Quest, paste the same
+   worker URL and key that Side Quest's dashboard uses.
+4. **On the phone:** open the site in Safari, then Share → **Add to Home
+   Screen**.
 
 ## Open questions
 
 - Should the feed have a daily "You're caught up" point by default, or only
   when you turn it on?
 - Dark mode for night reading: warm charcoal with sage?
-- Should the garden tree grow visibly with leaves (more foliage per branch)?

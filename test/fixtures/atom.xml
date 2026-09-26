@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Sample Atom Journal</title>
+  <link href="https://journal.example.org/" />
+  <updated>2026-09-24T10:00:00Z</updated>
+  <entry>
+    <title type="html">A sample study title with &lt;i&gt;italics&lt;/i&gt;</title>
+    <link rel="self" href="https://journal.example.org/api/1" />
+    <link rel="alternate" type="text/html" href="https://journal.example.org/articles/1" />
+    <id>urn:uuid:sample-1</id>
+    <published>2026-09-24T10:00:00Z</published>
+    <summary type="html">&lt;p&gt;Background: sample abstract text. Methods: more sample text.&lt;/p&gt;</summary>
+  </entry>
+</feed>

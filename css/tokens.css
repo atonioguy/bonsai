@@ -1,0 +1,78 @@
+/* Bonsai design tokens — the single source of truth (see DESIGN.md §3).
+   Use only these values. Need a new one? Add it here and to DESIGN.md. */
+:root {
+  /* spacing */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* type */
+  --font-read: "Newsreader", Georgia, "Times New Roman", serif;
+  --font-ui: "Karla", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --t-sm: 14px;   --lh-sm: 1.4;
+  --t-md: 16px;   --lh-md: 1.5;
+  --t-lg: 18px;   --lh-lg: 1.5;
+  --t-xl: 20px;   --lh-xl: 1.65;
+  --t-2xl: 24px;  --lh-2xl: 1.25;
+  --t-3xl: 32px;  --lh-3xl: 1.2;
+
+  /* radii */
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-full: 999px;
+
+  /* shadows */
+  --shadow-1: 0 2px 8px rgba(51, 45, 39, 0.10);
+  --shadow-2: 0 6px 20px rgba(51, 45, 39, 0.14);
+
+  /* color — UI */
+  --bg: #F5F0E7;
+  --surface: #FBF8F2;
+  --surface-warm: #EADFCF;
+  --surface-cool: #E4E8DA;
+  --text: #332D27;
+  --text-2: #6A5F54;
+  --accent: #56654A;
+  --accent-ink: #F5F0E7;
+  --line: #E3D9CA;
+  --line-strong: #938370;
+  --success: #4A6340;
+  --warning: #85550F;
+  --danger: #A23B2A;
+
+  /* color — illustration only */
+  --sage: #A3B18A;
+  --clay: #CFAE96;
+  --clay-dark: #B8927A;
+  --bark: #6E5A47;
+  --beige: #D8C6AE;
+
+  /* controls */
+  --control: 44px;
+  --control-lg: 48px;
+
+  /* layout */
+  --col: 640px;
+  --nav-h: 64px;
+  --bar-h: 56px;
+
+  /* motion */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 350ms;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --ease-in-out: cubic-bezier(.4, 0, .2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 0ms;
+    --dur-2: 0ms;
+    --dur-3: 0ms;
+  }
+}

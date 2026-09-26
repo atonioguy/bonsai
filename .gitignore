@@ -1,0 +1,6 @@
+test/shots/
+node_modules/
+.wrangler/
+*.epub
+bonsai-backup-*.json
+.DS_Store

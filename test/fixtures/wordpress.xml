@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+  <title>Sample Essays</title>
+  <atom:link href="https://example.org/feed/" rel="self" type="application/rss+xml" />
+  <link>https://example.org</link>
+  <item>
+    <title>Sample essay &#8212; on archives &amp; memory</title>
+    <link>https://example.org/archives-memory/</link>
+    <dc:creator><![CDATA[A. Writer]]></dc:creator>
+    <pubDate>Tue, 22 Sep 2026 14:00:00 +0000</pubDate>
+    <guid isPermaLink="false">https://example.org/?p=101</guid>
+    <description><![CDATA[<p>A short summary of the essay with <em>emphasis</em>.</p>]]></description>
+    <content:encoded><![CDATA[<p>First paragraph of the full essay.</p><script>alert(1)</script><p>Second paragraph with <a href="https://example.org/x">a link</a>.</p><img src="https://example.org/pic.jpg" alt="pic">]]></content:encoded>
+  </item>
+  <item>
+    <title>Older sample post</title>
+    <link>https://example.org/older/</link>
+    <pubDate>Mon, 14 Sep 2026 09:30:00 +0000</pubDate>
+    <description>Escaped &lt;b&gt;HTML&lt;/b&gt; summary that is fairly plain.</description>
+  </item>
+</channel>
+</rss>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+<channel>
+  <title>Sample Oral Histories</title>
+  <item>
+    <title>Sample episode</title>
+    <description><![CDATA[<p>An archival interview, sample description.</p>]]></description>
+    <pubDate>Wed, 23 Sep 2026 07:00:00 -0400</pubDate>
+    <guid isPermaLink="false">ep-42</guid>
+    <enclosure url="https://cdn.example.org/ep42.mp3" length="1234" type="audio/mpeg"/>
+    <itunes:image href="https://cdn.example.org/ep42.jpg"/>
+  </item>
+</channel>
+</rss>
