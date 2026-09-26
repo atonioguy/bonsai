@@ -3,7 +3,7 @@ import * as db from './db.js';
 import { h, icon, treeMark } from './ui.js';
 import { retryPending } from './sidequest.js';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 
 const SCREENS = {
   feed: () => import('./screens/feed.js'),

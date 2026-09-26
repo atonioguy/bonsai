@@ -78,7 +78,7 @@ scroll end when you want it to.
 | Piece | Where | Notes |
 |------|------|------|
 | App (HTML/CSS/JS, PWA) | GitHub Pages, this repo | `atonioguy.github.io/bonsai`. No build step to start. |
-| Feed worker `bonsai-feeds` | Cloudflare (free plan) | Fetches the feeds in `sources.json` on a schedule (cron), cleans them into cards, caches them in KV and serves JSON. Browsers can't fetch most feeds directly (CORS), so this is required. Holds no personal keys. |
+| Feed worker `bonsai-feeds` | Cloudflare (free plan) | Refreshes one source from `sources.json` every 5 minutes (each about every 2 h, to stay inside the free CPU limit), stores cards in KV and serves `/feed`. Drops paywalled posts for sources marked `hideLocked`. Browsers can't fetch most feeds directly (CORS), so this is required. Holds no personal keys. |
 | Books, leaves, reading progress | On the phone (IndexedDB) | Private. Books are **never** committed: the repo is public. |
 | Side Quest bridge | Existing `aquamarine-data` worker | Only `POST /focus`. |
 
@@ -91,8 +91,9 @@ channels (they publish RSS feeds).
 See [`sources.json`](sources.json). Every URL there is **unverified**: they came
 from search results or each site's usual feed pattern, and the design session
 couldn't open them because of its network settings. The worker checks each one
-on first fetch. Still to find: Garbage Day's current feed and Greater Good's
-articles feed.
+when it fetches them. Garbage Day is marked `hideLocked`: posts that read as
+"for paid subscribers" are dropped and free ones are kept (the worker counts
+hidden posts per source).
 
 ### PubMed searches (done: the four feeds are in sources.json)
 
@@ -161,8 +162,9 @@ Next:
 1. **Merge to `main` and turn on GitHub Pages:** repo **Settings → Pages →
    Build and deployment → Deploy from a branch → `main` / root**. The app
    appears at `https://atonioguy.github.io/bonsai/`.
-2. **Deploy the feed worker:** follow `worker/README.md` (about 10 min), then
-   paste its URL into Bonsai → Settings → Feed server URL.
+2. **Deploy the feed worker** from the Cloudflare dashboard (no terminal):
+   follow `worker/README.md` (about 10 min), then paste its URL into Bonsai →
+   Settings → Feed server URL.
 3. **Optional, Side Quest:** in Bonsai → Settings → Side Quest, paste the same
    worker URL and key that Side Quest's dashboard uses.
 4. **On the phone:** open the site in Safari, then Share → **Add to Home

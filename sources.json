@@ -1,5 +1,5 @@
 {
-  "_note": "Starter sources for Bonsai. 'verified: false' means the feed URL came from search results or the site's usual pattern and hasn't been opened yet; the feed worker checks each one on first fetch. 'feed: null' means we still need to find the URL.",
+  "_note": "Starter sources for Bonsai. 'verified: false' means the feed URL hasn't been opened yet; the feed worker checks each one on first fetch and reports failures in its status. 'hideLocked: true' drops posts that are only for paying subscribers.",
   "topics": [
     {
       "id": "mind",
@@ -173,9 +173,10 @@
       "name": "Garbage Day",
       "kind": "newsletter",
       "site": "https://www.garbageday.email/",
-      "feed": null,
+      "feed": "https://rss.beehiiv.com/feeds/owMwaGYU36.xml",
       "verified": false,
-      "todo": "Moved off Substack; find its current feed"
+      "hideLocked": true,
+      "note": "Some posts are for paid subscribers; hideLocked drops those and keeps the free ones"
     },
     {
       "id": "pew-research-internet-technology",
@@ -202,9 +203,8 @@
       "name": "Greater Good Magazine",
       "kind": "essay",
       "site": "https://greatergood.berkeley.edu/",
-      "feed": null,
-      "verified": false,
-      "todo": "Find the articles feed (a podcast feed exists at /site/rss/podcasts)"
+      "feed": "https://greatergood.berkeley.edu/site/rss",
+      "verified": false
     },
     {
       "id": "the-marginalian",

@@ -1,5 +1,5 @@
 import * as db from '../db.js';
-import { mixFeed, composeFeed, dueThrowbacks, afterShown, relTime } from '../logic.js';
+import { mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed } from '../logic.js';
 import { h, enso } from '../ui.js';
 import { currentBook, percent } from '../books.js';
 
@@ -84,8 +84,7 @@ export async function render(main, app) {
       if (force) await fetch(base + '/refresh', { method: 'POST' }).catch(() => {});
       const r = await fetch(base + '/feed', { cache: 'no-store' });
       if (!r.ok) throw new Error('The feed server answered ' + r.status + '.');
-      const data = await r.json();
-      cache = { ...data, fetchedAt: Date.now() };
+      cache = { ...normalizeFeed(await r.json()), fetchedAt: Date.now() };
       await db.put('kv', 'feed', cache);
     } catch (e) {
       error = e instanceof TypeError ? 'The feed server couldn’t be reached.' : e.message;

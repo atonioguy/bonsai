@@ -25,7 +25,7 @@ setup steps plainly.
 | `js/books.js`, `js/epub.js` | EPUB import (zip read with `DecompressionStream`) and reading progress |
 | `js/sanitize.js` | Allowlist HTML cleaner for feed and book content |
 | `js/sidequest.js` | Logs finished sessions to Side Quest's worker (`POST /focus`) |
-| `worker/` | `bonsai-feeds` Cloudflare Worker. `parse.js` is shared with tests |
+| `worker/` | `bonsai-feeds` Cloudflare Worker. Edit `worker.js`/`parse.js`, then `node worker/build.mjs` regenerates `bonsai-feeds.js`, the single file the owner pastes into the Cloudflare dashboard |
 | `sources.json` | Topics, sources (feed URLs) and suggested free books. Read by both the app and the worker |
 | `test/` | `node --test test/*.test.mjs` (unit), `node test/ui.mjs` (browser run + screenshots) |
 
@@ -58,8 +58,12 @@ Then look at the screenshots (DESIGN.md §10).
 - Add any new app file to the `SHELL` list in `sw.js`.
 - The live site serves `main` via GitHub Pages at
   `https://atonioguy.github.io/bonsai/`.
-- Worker changes need `wrangler deploy` from `worker/`, which the owner runs.
-  `sources.json` edits need no redeploy.
+- Worker changes: run `node worker/build.mjs`, then tell the owner to re-paste
+  `worker/bonsai-feeds.js` in the Cloudflare dashboard (Edit code → Deploy). That's
+  how they deploy; they don't use a terminal. `sources.json` edits need no redeploy.
+- The free Workers plan allows ~10 ms of CPU per run. That's why the worker
+  refreshes one source per 5-minute cron run and `/feed` stitches stored text
+  instead of parsing it. Keep it that way.
 
 ## Related repo
 

@@ -30,6 +30,16 @@ export function afterShown(s, now = Date.now()) {
 }
 
 // ---------- feed mix ----------
+// The worker answers { sources: [{ id, meta, items }] }; the app works with flat items + status.
+export function normalizeFeed(data) {
+  if (!data || !Array.isArray(data.sources)) return { updatedAt: data?.updatedAt, items: data?.items || [], status: data?.status || [] };
+  return {
+    updatedAt: data.updatedAt,
+    items: data.sources.flatMap((s) => s.items || []),
+    status: data.sources.map((s) => ({ id: s.id, ...(s.meta || {}) })),
+  };
+}
+
 /**
  * Newest first, but never two in a row from the same source when it can be avoided.
  * @param {Array} items  feed items

@@ -1,19 +1,24 @@
 // bonsai-feeds — Cloudflare Worker
-// Every 2 hours (cron) it reads sources.json from the live site, fetches each feed,
-// turns them into cards, and stores the result in KV. The app reads GET /feed.
+// Keeps one small KV entry per source. Every 5 minutes (cron) it refreshes the one source
+// that's been waiting longest, so each run stays well inside the free plan's CPU limit
+// (a large feed takes a few ms to parse). With ~22 sources, each refreshes about every 2 h.
+// GET /feed stitches the stored entries together as text, without re-parsing them.
 // Holds no personal keys: it only reads public feeds.
 
-import { parseFeed } from './parse.js';
+import { parseFeed, isLocked } from './parse.js';
 
-const PER_SOURCE = 12;          // newest items kept per source
+const PER_SOURCE = 12;               // newest items kept per source
 const FETCH_TIMEOUT = 15_000;
-const MIN_REFRESH_GAP = 10 * 60_000; // POST /refresh is ignored if the last build is newer than this
+const REFRESH_GAP = 60_000;          // POST /refresh does at most one source a minute
+// Defaults, so the worker runs with only the FEEDS binding set. Override in the worker's variables.
+const SOURCES_URL = 'https://atonioguy.github.io/bonsai/sources.json';
+const ALLOW_ORIGIN = 'https://atonioguy.github.io';
 
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     const cors = {
-      'Access-Control-Allow-Origin': env.ALLOW_ORIGIN || '*',
+      'Access-Control-Allow-Origin': env.ALLOW_ORIGIN || ALLOW_ORIGIN,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'content-type',
       'Vary': 'Origin',
@@ -22,15 +27,20 @@ export default {
 
     try {
       if (url.pathname === '/feed' && req.method === 'GET') {
-        let body = await env.FEEDS.get('feed');
-        if (!body) body = JSON.stringify(await build(env)); // first run, before the cron has fired
+        const sources = await loadSources(env);
+        let body = await feedBody(env, sources);
+        if (!body) { // first visit ever: fetch one source now so the feed isn't empty
+          await refreshNext(env, sources);
+          body = (await feedBody(env, sources)) || '{"sources":[]}';
+        }
         return new Response(body, { headers: { ...cors, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
       }
       if (url.pathname === '/refresh' && req.method === 'POST') {
-        const last = Number((await env.FEEDS.get('builtAt')) || 0);
-        if (Date.now() - last < MIN_REFRESH_GAP) return json({ ok: true, skipped: true, builtAt: new Date(last).toISOString() }, 200, cors);
-        const feed = await build(env);
-        return json({ ok: true, builtAt: feed.updatedAt, count: feed.items.length }, 200, cors);
+        const last = Number((await env.FEEDS.get('lastRefresh')) || 0);
+        if (Date.now() - last < REFRESH_GAP) return json({ ok: true, skipped: true }, 200, cors);
+        await env.FEEDS.put('lastRefresh', String(Date.now()));
+        const done = await refreshNext(env, await loadSources(env));
+        return json({ ok: true, refreshed: done }, 200, cors);
       }
       if (url.pathname === '/' || url.pathname === '/health') {
         return json({ ok: true, name: 'bonsai-feeds' }, 200, cors);
@@ -42,33 +52,55 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(build(env));
+    ctx.waitUntil(loadSources(env).then((sources) => refreshNext(env, sources)));
   },
 };
 
-async function build(env) {
-  const res = await fetch(env.SOURCES_URL, { cf: { cacheTtl: 300 } });
+async function loadSources(env) {
+  const res = await fetch(env.SOURCES_URL || SOURCES_URL, { cf: { cacheTtl: 300 } });
   if (!res.ok) throw new Error('sources.json: HTTP ' + res.status);
   const cfg = await res.json();
-  const sources = (cfg.sources || []).filter((s) => s.feed);
+  return (cfg.sources || []).filter((s) => s.feed);
+}
 
-  const results = await Promise.allSettled(sources.map((s) => fetchOne(s)));
-  const items = [];
-  const status = [];
-  results.forEach((r, i) => {
-    const s = sources[i];
-    if (r.status === 'fulfilled') {
-      items.push(...r.value.slice(0, PER_SOURCE));
-      status.push({ id: s.id, ok: true, count: Math.min(r.value.length, PER_SOURCE) });
-    } else {
-      status.push({ id: s.id, ok: false, error: String(r.reason && r.reason.message || r.reason).slice(0, 200) });
-    }
+// The stored entries stitched together as text (no JSON.parse of the big item lists).
+async function feedBody(env, sources) {
+  const entries = await Promise.all(sources.map((s) => env.FEEDS.getWithMetadata('src:' + s.id)));
+  const parts = [];
+  entries.forEach((e, i) => {
+    if (!e.value) return;
+    parts.push('{"id":' + JSON.stringify(sources[i].id) + ',"meta":' + JSON.stringify(e.metadata || {}) + ',"items":' + e.value + '}');
   });
+  if (!parts.length) return '';
+  return '{"updatedAt":' + JSON.stringify(new Date().toISOString()) + ',"sources":[' + parts.join(',') + ']}';
+}
 
-  const feed = { updatedAt: new Date().toISOString(), items, status };
-  await env.FEEDS.put('feed', JSON.stringify(feed));
-  await env.FEEDS.put('builtAt', String(Date.now()));
-  return feed;
+// Refresh the source that has waited longest (never-fetched ones first).
+async function refreshNext(env, sources) {
+  if (!sources.length) return null;
+  const listed = await env.FEEDS.list({ prefix: 'src:' });
+  const seen = new Map(listed.keys.map((k) => [k.name.slice(4), (k.metadata && k.metadata.fetchedAt) || 0]));
+  const next = sources.slice().sort((a, b) => (seen.get(a.id) || 0) - (seen.get(b.id) || 0))[0];
+  await refreshOne(env, next);
+  return next.id;
+}
+
+async function refreshOne(env, s) {
+  const key = 'src:' + s.id;
+  try {
+    const all = await fetchOne(s);
+    const open = s.hideLocked ? all.filter((it) => !isLocked(it)) : all;
+    const kept = open.slice(0, PER_SOURCE);
+    await env.FEEDS.put(key, JSON.stringify(kept), {
+      metadata: { fetchedAt: Date.now(), ok: true, count: kept.length, hidden: all.length - open.length },
+    });
+  } catch (e) {
+    // Keep the last good items; just record the failure.
+    const old = await env.FEEDS.getWithMetadata(key);
+    await env.FEEDS.put(key, old.value || '[]', {
+      metadata: { ...(old.metadata || {}), fetchedAt: Date.now(), ok: false, error: String(e && e.message || e).slice(0, 160) },
+    });
+  }
 }
 
 async function fetchOne(source) {
@@ -82,8 +114,9 @@ async function fetchOne(source) {
   });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const xml = await r.text();
-  const items = parseFeed(xml, source);
-  if (!items.length) throw new Error('no items (not a feed?)');
+  // Parse a few spare items so hidden (locked) posts can be replaced.
+  const items = parseFeed(xml, source, source.hideLocked ? PER_SOURCE * 2 : PER_SOURCE);
+  if (!items.length && !/<(rss|feed|rdf:RDF)\b/i.test(xml)) throw new Error('not a feed');
   return items;
 }
 
