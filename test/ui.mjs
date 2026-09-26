@@ -47,6 +47,11 @@ const JATS = `<?xml version="1.0"?><article xmlns:xlink="http://www.w3.org/1999/
   <sec><title>Introduction</title><p>${'Sample full-text sentence with <italic>emphasis</italic> and a citation<xref ref-type="bibr" rid="r1">1</xref>. '.repeat(8)}</p></sec>
   <sec><title>Methods</title><p>${'Methods sample sentence. '.repeat(12)}</p><list list-type="order"><list-item><p>First step</p></list-item><list-item><p>Second step</p></list-item></list>
   <fig id="f1"><label>Figure 1</label><caption><p>A sample figure caption.</p></caption><graphic xlink:href="f1.jpg"/></fig></sec></body></article>`;
+// news for today's brief (ids match real sources so the good-news flag applies), and a video
+for (const [id, sourceId, sourceName] of [['n1', 'bbc-world', 'BBC World'], ['n2', 'npr-news', 'NPR News'], ['n3', 'the-19th', 'The 19th'], ['n4', 'propublica', 'ProPublica'], ['g1', 'reasons-to-be-cheerful', 'Reasons to be Cheerful']]) {
+  items.push({ id, sourceId, sourceName, topic: 'news', kind: 'news', title: 'Sample headline from ' + sourceName, url: 'https://example.org/' + id, published: iso(3), excerpt: 'Sample news summary.', html: '<p>Sample news summary.</p>', audioUrl: '', image: '' });
+}
+items.push({ id: 'v1', sourceId: 'kurzgesagt', sourceName: 'Kurzgesagt', topic: 'science', kind: 'video', videoId: 'abcDEF12345', short: false, title: 'A sample explainer video', url: 'https://www.youtube.com/watch?v=abcDEF12345', published: iso(1.5), excerpt: 'Line one.', html: 'Line one.\nLine two.', audioUrl: '', image: '' });
 const FEED = { updatedAt: iso(1), items, status: [{ id: 'sample-journal', ok: false, error: 'HTTP 404' }] };
 
 // A tiny EPUB built in memory (deflate, like real EPUBs).
@@ -181,6 +186,20 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   check(await page.$('.book-card'), 'book card shown');
   check(await page.$('.throwback'), 'throwback shown');
   await shot('04-feed');
+  check(await page.$('.brief .brief-link'), "today's brief shown");
+  check((await page.$$('.brief-link')).length === 5, 'brief has five stories');
+  check((await page.textContent('.brief')).includes('Good news'), 'brief includes good news');
+  check(!(await page.$('.entry[data-id="n1"]')), 'news stays out of the main feed');
+  check(await page.$('.entry[data-id="v1"] .thumb img'), 'video shows a thumbnail');
+  await page.click('.tab[data-topic="news"]');
+  check(await page.$('.entry[data-id="n1"]'), 'News tab lists news');
+  await page.click('.tab[data-topic="all"]');
+  await page.goto(BASE + '#/item/v1');
+  await page.waitForSelector('.player iframe');
+  check((await page.getAttribute('.player iframe', 'src')).startsWith('https://www.youtube-nocookie.com/embed/abcDEF12345'), 'video plays in the app');
+  await shot('06h-video');
+  await page.goto(BASE + '#/');
+  await page.waitForSelector('.brief');
   await page.evaluate(() => window.scrollTo(0, 900));
   await shot('05-feed-scrolled');
   await page.evaluate(() => window.scrollTo(0, 0));

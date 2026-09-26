@@ -5,8 +5,8 @@ them to the app. It runs on its own, separate from Side Quest's
 `aquamarine-data` worker, and holds no keys or passwords. It only reads public
 feeds.
 
-**How it works:** every 5 minutes it refreshes the one source that has waited
-longest, so each run stays inside the free plan's CPU limit. With about 22
+**How it works:** every 2 minutes it refreshes the one source that has waited
+longest, so each run stays inside the free plan’s CPU limit. With about 50
 sources, each one is refreshed roughly every 2 hours. `GET /feed` returns
 everything stored.
 
@@ -29,8 +29,8 @@ Before you start, GitHub Pages must be on: the worker reads
    namespace**. Set **Variable name** to exactly `FEEDS`, pick the `bonsai-feeds`
    namespace, and save or deploy.
 5. **Schedule it.** In the worker go to **Settings → Trigger Events** (sometimes
-   called **Triggers**) → **Add** → **Cron Triggers**. Enter `*/5 * * * *`
-   (every 5 minutes) and save.
+   called **Triggers**) → **Add** → **Cron Triggers**. Enter `*/2 * * * *`
+   (every 2 minutes) and save.
 6. **Check it.** Open `https://bonsai-feeds.<your-subdomain>.workers.dev/feed`.
    It's the same subdomain your aquamarine-data worker uses, and the URL is
    shown on the worker's page. You should see text starting `{"updatedAt"`

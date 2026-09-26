@@ -154,3 +154,19 @@ test('articleIds: PMID from PubMed links, DOI from journal links, PMCID in text'
   assert.equal(libkeyUrl('782', { doi: '10.1/abc', pmid: '1' }), 'https://libkey.io/libraries/782/10.1/abc');
   assert.equal(libkeyUrl('', { pmid: '1' }), '');
 });
+
+import { pickBrief, dayKey } from '../js/logic.js';
+
+test('pickBrief: one per source, newest first, always one good-news story', () => {
+  const at = (h) => new Date(T0 - h * 3600e3).toISOString();
+  const items = [
+    { id: 'a1', sourceId: 'a', topic: 'news', published: at(1) }, { id: 'a2', sourceId: 'a', topic: 'news', published: at(2) },
+    { id: 'b1', sourceId: 'b', topic: 'news', published: at(3) }, { id: 'c1', sourceId: 'c', topic: 'news', published: at(4) },
+    { id: 'g1', sourceId: 'good', topic: 'news', published: at(30) }, { id: 'x', sourceId: 'x', topic: 'mind', published: at(1) },
+    { id: 'old', sourceId: 'd', topic: 'news', published: at(200) },
+  ];
+  const brief = pickBrief(items, { positive: new Set(['good']), now: T0 });
+  assert.deepEqual(brief.map((i) => i.id), ['a1', 'b1', 'c1', 'a2', 'g1']);
+  assert.equal(pickBrief([], { now: T0 }).length, 0);
+  assert.match(dayKey(T0), /^\d{4}-\d{1,2}-\d{1,2}$/);
+});

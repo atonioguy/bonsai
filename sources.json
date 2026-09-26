@@ -1,5 +1,5 @@
 {
-  "_note": "Starter sources for Bonsai. 'verified: false' means the feed URL hasn't been opened yet; the feed worker checks each one on first fetch and reports failures in its status. 'hideLocked: true' drops posts that are only for paying subscribers.",
+  "_note": "Sources for Bonsai. 'verified: false' = the URL hasn't been opened from here; the feed worker checks each one and Library shows 'Not loading' with the reason. 'hideLocked' drops paid-only posts. 'positive' marks good-news sources (one always makes the daily brief). 'youtube:@handle' feeds are resolved to the channel's video feed by the worker. Topics with 'brief: true' stay out of the main feed unless you turn them on (Settings).",
   "topics": [
     {
       "id": "mind",
@@ -7,9 +7,19 @@
       "about": "Psychiatry & psychology: ADHD, BPD, depressive and anxiety disorders"
     },
     {
-      "id": "trans",
-      "name": "Trans health",
-      "about": "Trans healthcare research and news"
+      "id": "health",
+      "name": "Health",
+      "about": "Bodies, medicine, public health"
+    },
+    {
+      "id": "science",
+      "name": "Science",
+      "about": "General science, space, nature, how things work"
+    },
+    {
+      "id": "history",
+      "name": "History",
+      "about": "General history and how the past shapes now"
     },
     {
       "id": "queer-history",
@@ -17,14 +27,30 @@
       "about": "LGBTQ history, archives, oral histories"
     },
     {
+      "id": "trans",
+      "name": "Trans health",
+      "about": "Trans healthcare research and news"
+    },
+    {
       "id": "tech-society",
       "name": "Tech & society",
-      "about": "Anthropology; how the internet, AI and technology change how we live"
+      "about": "Anthropology, politics and awareness; how technology changes how we live"
     },
     {
       "id": "tao",
       "name": "Tao",
       "about": "Taoism, contemplative philosophy, wellbeing"
+    },
+    {
+      "id": "news",
+      "name": "News",
+      "about": "Daily brief: world and national news, plus good news",
+      "brief": true
+    },
+    {
+      "id": "local",
+      "name": "Nearby",
+      "about": "Arlington and Dallas–Fort Worth"
     }
   ],
   "sources": [
@@ -214,6 +240,311 @@
       "site": "https://www.themarginalian.org/",
       "feed": "https://www.themarginalian.org/feed/",
       "verified": false
+    },
+    {
+      "id": "the-conversation",
+      "topic": "news",
+      "name": "The Conversation",
+      "kind": "news",
+      "site": "https://theconversation.com/us",
+      "feed": "https://theconversation.com/us/articles.atom",
+      "verified": false
+    },
+    {
+      "id": "propublica",
+      "topic": "news",
+      "name": "ProPublica",
+      "kind": "news",
+      "site": "https://www.propublica.org/",
+      "feed": "https://feeds.propublica.org/propublica/main",
+      "verified": false
+    },
+    {
+      "id": "the-19th",
+      "topic": "news",
+      "name": "The 19th",
+      "kind": "news",
+      "site": "https://19thnews.org/",
+      "feed": "https://19thnews.org/feed/",
+      "verified": false
+    },
+    {
+      "id": "npr-news",
+      "topic": "news",
+      "name": "NPR News",
+      "kind": "news",
+      "site": "https://www.npr.org/",
+      "feed": "https://feeds.npr.org/1001/rss.xml",
+      "verified": false
+    },
+    {
+      "id": "bbc-world",
+      "topic": "news",
+      "name": "BBC World",
+      "kind": "news",
+      "site": "https://www.bbc.com/news/world",
+      "feed": "https://feeds.bbci.co.uk/news/world/rss.xml",
+      "verified": false
+    },
+    {
+      "id": "tangle",
+      "topic": "news",
+      "name": "Tangle",
+      "kind": "news",
+      "site": "https://www.readtangle.com/",
+      "feed": "https://www.readtangle.com/rss/",
+      "verified": false,
+      "hideLocked": true
+    },
+    {
+      "id": "reasons-to-be-cheerful",
+      "topic": "news",
+      "name": "Reasons to be Cheerful",
+      "kind": "news",
+      "site": "https://reasonstobecheerful.world/",
+      "feed": "https://reasonstobecheerful.world/feed/",
+      "verified": false,
+      "positive": true
+    },
+    {
+      "id": "positive-news",
+      "topic": "news",
+      "name": "Positive News",
+      "kind": "news",
+      "site": "https://www.positive.news/",
+      "feed": "https://www.positive.news/feed/",
+      "verified": false,
+      "positive": true
+    },
+    {
+      "id": "fix-the-news",
+      "topic": "news",
+      "name": "Fix the News",
+      "kind": "news",
+      "site": "https://fixthenews.com/",
+      "feed": "https://fixthenews.com/rss/",
+      "verified": false,
+      "positive": true,
+      "hideLocked": true
+    },
+    {
+      "id": "kurzgesagt",
+      "topic": "science",
+      "name": "Kurzgesagt",
+      "kind": "video",
+      "site": "https://www.youtube.com/@kurzgesagt",
+      "feed": "youtube:@kurzgesagt",
+      "verified": false
+    },
+    {
+      "id": "veritasium",
+      "topic": "science",
+      "name": "Veritasium",
+      "kind": "video",
+      "site": "https://www.youtube.com/@veritasium",
+      "feed": "youtube:@veritasium",
+      "verified": false
+    },
+    {
+      "id": "scishow",
+      "topic": "science",
+      "name": "SciShow",
+      "kind": "video",
+      "site": "https://www.youtube.com/@SciShow",
+      "feed": "youtube:@SciShow",
+      "verified": false
+    },
+    {
+      "id": "minutephysics",
+      "topic": "science",
+      "name": "MinutePhysics",
+      "kind": "video",
+      "site": "https://www.youtube.com/@minutephysics",
+      "feed": "youtube:@minutephysics",
+      "verified": false
+    },
+    {
+      "id": "ted-ed",
+      "topic": "science",
+      "name": "TED-Ed",
+      "kind": "video",
+      "site": "https://www.youtube.com/@TEDEd",
+      "feed": "youtube:@TEDEd",
+      "verified": false
+    },
+    {
+      "id": "crashcourse",
+      "topic": "history",
+      "name": "CrashCourse",
+      "kind": "video",
+      "site": "https://www.youtube.com/@crashcourse",
+      "feed": "youtube:@crashcourse",
+      "verified": false
+    },
+    {
+      "id": "overly-sarcastic-productions",
+      "topic": "history",
+      "name": "Overly Sarcastic Productions",
+      "kind": "video",
+      "site": "https://www.youtube.com/@OverlySarcasticProductions",
+      "feed": "youtube:@OverlySarcasticProductions",
+      "verified": false
+    },
+    {
+      "id": "history-matters",
+      "topic": "history",
+      "name": "History Matters",
+      "kind": "video",
+      "site": "https://www.youtube.com/@HistoryMatters",
+      "feed": "youtube:@HistoryMatters",
+      "verified": false
+    },
+    {
+      "id": "extra-history",
+      "topic": "history",
+      "name": "Extra History",
+      "kind": "video",
+      "site": "https://www.youtube.com/@ExtraHistory",
+      "feed": "youtube:@ExtraHistory",
+      "verified": false
+    },
+    {
+      "id": "how-to-adhd",
+      "topic": "mind",
+      "name": "How to ADHD",
+      "kind": "video",
+      "site": "https://www.youtube.com/@HowtoADHD",
+      "feed": "youtube:@HowtoADHD",
+      "verified": false
+    },
+    {
+      "id": "dr-tracey-marks",
+      "topic": "mind",
+      "name": "Dr. Tracey Marks",
+      "kind": "video",
+      "site": "https://www.youtube.com/@DrTraceyMarks",
+      "feed": "youtube:@DrTraceyMarks",
+      "verified": false
+    },
+    {
+      "id": "healthygamergg",
+      "topic": "mind",
+      "name": "HealthyGamerGG",
+      "kind": "video",
+      "site": "https://www.youtube.com/@HealthyGamerGG",
+      "feed": "youtube:@HealthyGamerGG",
+      "verified": false
+    },
+    {
+      "id": "scishow-psych",
+      "topic": "mind",
+      "name": "SciShow Psych",
+      "kind": "video",
+      "site": "https://www.youtube.com/@SciShowPsych",
+      "feed": "youtube:@SciShowPsych",
+      "verified": false
+    },
+    {
+      "id": "doctor-mike",
+      "topic": "health",
+      "name": "Doctor Mike",
+      "kind": "video",
+      "site": "https://www.youtube.com/@DoctorMike",
+      "feed": "youtube:@DoctorMike",
+      "verified": false
+    },
+    {
+      "id": "vox",
+      "topic": "tech-society",
+      "name": "Vox",
+      "kind": "video",
+      "site": "https://www.youtube.com/@Vox",
+      "feed": "youtube:@Vox",
+      "verified": false
+    },
+    {
+      "id": "johnny-harris",
+      "topic": "tech-society",
+      "name": "Johnny Harris",
+      "kind": "video",
+      "site": "https://www.youtube.com/@johnnyharris",
+      "feed": "youtube:@johnnyharris",
+      "verified": false
+    },
+    {
+      "id": "philosophy-tube",
+      "topic": "tech-society",
+      "name": "Philosophy Tube",
+      "kind": "video",
+      "site": "https://www.youtube.com/@PhilosophyTube",
+      "feed": "youtube:@PhilosophyTube",
+      "verified": false
+    },
+    {
+      "id": "rowan-ellis",
+      "topic": "queer-history",
+      "name": "Rowan Ellis",
+      "kind": "video",
+      "site": "https://www.youtube.com/@RowanEllis",
+      "feed": "youtube:@RowanEllis",
+      "verified": false
+    },
+    {
+      "id": "jammidodger",
+      "topic": "trans",
+      "name": "Jammidodger",
+      "kind": "video",
+      "site": "https://www.youtube.com/@Jammidodger",
+      "feed": "youtube:@Jammidodger",
+      "verified": false
+    },
+    {
+      "id": "the-school-of-life",
+      "topic": "tao",
+      "name": "The School of Life",
+      "kind": "video",
+      "site": "https://www.youtube.com/@theschooloflifetv",
+      "feed": "youtube:@theschooloflifetv",
+      "verified": false
+    },
+    {
+      "id": "einzelg-nger",
+      "topic": "tao",
+      "name": "Einzelgänger",
+      "kind": "video",
+      "site": "https://www.youtube.com/@Einzelganger",
+      "feed": "youtube:@Einzelganger",
+      "verified": false
+    },
+    {
+      "id": "dallas-voice",
+      "topic": "local",
+      "name": "Dallas Voice",
+      "kind": "news",
+      "site": "https://dallasvoice.com/",
+      "feed": "https://dallasvoice.com/feed/",
+      "verified": false,
+      "note": "LGBTQ news for Dallas–Fort Worth"
+    },
+    {
+      "id": "city-of-arlington",
+      "topic": "local",
+      "name": "City of Arlington",
+      "kind": "news",
+      "site": "https://www.arlingtontx.gov/News-Events/All-News",
+      "feed": null,
+      "verified": false,
+      "todo": "Find its feed link (MyArlingtonTX news)"
+    },
+    {
+      "id": "kera-news",
+      "topic": "local",
+      "name": "KERA News",
+      "kind": "news",
+      "site": "https://www.keranews.org/",
+      "feed": null,
+      "verified": false,
+      "todo": "Pick a KERA section feed (RSS link on each section page)"
     }
   ],
   "books": [

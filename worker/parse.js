@@ -153,6 +153,7 @@ export function parseFeed(xml, source, limit = 50) {
       || attr(html.slice(0, 20_000), 'img', 'src');
 
     const published = toIso(tag(b, ['pubDate', 'published', 'dc:date', 'updated', 'prism:publicationDate']));
+    const videoId = stripTags(tag(b, ['yt:videoId'])); // YouTube channel feeds
     const guid = stripTags(tag(b, isAtom ? ['id'] : ['guid'])) || link || title;
     if (!title && !excerpt) continue;
 
@@ -161,7 +162,7 @@ export function parseFeed(xml, source, limit = 50) {
       sourceId: source.id,
       sourceName: source.name,
       topic: source.topic,
-      kind: audioUrl ? 'audio' : source.kind || 'article',
+      kind: videoId ? 'video' : audioUrl ? 'audio' : source.kind || 'article',
       title: title || excerpt.slice(0, 80),
       url: link,
       published,
@@ -169,6 +170,7 @@ export function parseFeed(xml, source, limit = 50) {
       html: html.trim(),
       audioUrl: isHttp(audioUrl) ? audioUrl : '',
       image: isHttp(image) ? image : '',
+      ...(videoId && /^[\w-]{11}$/.test(videoId) ? { videoId, short: /\/shorts\//.test(link) } : {}),
     });
   }
 

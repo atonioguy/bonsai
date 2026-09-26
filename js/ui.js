@@ -47,6 +47,7 @@ const ICONS = {
   minus: `<path ${STROKE} d="M5 12h14"/>`,
   folder: `<path ${STROKE} d="M4 7a1 1 0 0 1 1-1h4l2 2h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>`,
   chevron: `<path ${STROKE} d="M9 5l7 7-7 7"/>`,
+  play: `<path fill="currentColor" d="M8 5l11 7-11 7z"/>`,
 };
 
 // Reactions: private, one per article, drawn in the bonsai world (no emoji).

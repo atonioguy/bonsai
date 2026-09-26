@@ -13,6 +13,8 @@ export async function render(main, app) {
   const sqUrl = h('input', { class: 'input', id: 'sq-url', type: 'url', inputmode: 'url', autocomplete: 'off', spellcheck: 'false', value: s.sqUrl, placeholder: 'https://aquamarine-data.you.workers.dev', 'aria-describedby': 'sq-url-hint' });
   const sqKey = h('input', { class: 'input', id: 'sq-key', type: 'password', autocomplete: 'off', value: s.sqKey });
 
+  const newsInFeed = h('input', { type: 'checkbox', role: 'switch', class: 'switch', id: 'news-in-feed', checked: Boolean(s.newsInFeed) });
+  newsInFeed.addEventListener('change', async () => { app.settings = await db.saveSettings({ newsInFeed: newsInFeed.checked }); });
   const libraryId = h('input', { class: 'input', id: 'library-id', type: 'text', inputmode: 'numeric', autocomplete: 'off', value: s.libraryId || '', 'aria-describedby': 'library-id-hint' });
 
   const form = h('form', { class: 'form', onsubmit: async (e) => {
@@ -27,7 +29,12 @@ export async function render(main, app) {
   } },
   h('section', { class: 'fieldset', 'aria-labelledby': 'set-feed' },
     h('h2', { class: 'section-title', id: 'set-feed', text: 'Feed' }),
-    field('feed-url', 'Feed server URL', feedUrl, 'The address of your bonsai-feeds worker.')),
+    field('feed-url', 'Feed server URL', feedUrl, 'The address of your bonsai-feeds worker.'),
+    h('div', { class: 'row' },
+      h('label', { class: 'row-main', for: 'news-in-feed' },
+        h('span', { class: 'label', text: 'News in the main feed' }),
+        h('span', { class: 'hint', text: 'Off: news shows only in Today’s brief and the News tab.' })),
+      newsInFeed)),
   h('section', { class: 'fieldset', 'aria-labelledby': 'set-library' },
     h('h2', { class: 'section-title', id: 'set-library', text: 'Library access' }),
     field('library-id', 'LibKey library ID', libraryId, 'The number in your library’s LibKey links (libkey.io/libraries/NUMBER/…). Used for papers that aren’t open access.')),

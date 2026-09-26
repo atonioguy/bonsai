@@ -169,6 +169,19 @@ takeaways.
     **Load full article** for research papers via Europe PMC's open-access
     copy, falling back to "Open in browser" and your library's LibKey link
     (Settings → Library access).
+11. ✅ v0.5: new topics (Health, Science, History, News, Nearby); **Today's
+    brief** (5 stories a day from The Conversation, ProPublica, The 19th, NPR,
+    BBC World, Tangle, always one good-news story from Reasons to be
+    Cheerful, Positive News or Fix the News; News stays out of the main feed
+    unless Settings → News in the main feed is on); **YouTube channels** as
+    video/Short cards played in the app (`youtube:@handle` sources, resolved
+    by the worker); Dallas Voice in Nearby. Worker now runs every 2 minutes.
+
+Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
+calendars found but none with a confirmed feed yet (HELP Center for LGBT
+Health & Wellness, Equality Arlington, UTA LGBTQ+ Program on events.uta.edu,
+1851 Club, Resource Center Dallas, Dallas Voice's weekly events). A weekly
+"This week near you" card needs calendar (iCal) support in the worker.
 
 Next:
 - Connections between new items and saved quotes.

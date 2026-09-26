@@ -110,3 +110,25 @@ test('/epmc relays only Europe PMC search and full-text paths', async () => {
   assert.equal(ok.status, 200);
   assert.equal(await ok.text(), '<article/>');
 });
+
+test('youtube:@handle is resolved once to the channel feed', async () => {
+  const env = { FEEDS: memKV() };
+  const saved = globalThis.fetch;
+  const calls = [];
+  const yt = readFileSync(new URL('./fixtures/youtube.xml', import.meta.url), 'utf8');
+  globalThis.fetch = async (u) => {
+    u = String(u); calls.push(u);
+    if (u.endsWith('sources.json')) return new Response(JSON.stringify({ sources: [{ id: 'k', name: 'K', topic: 'science', kind: 'video', feed: 'youtube:@kurz' }] }));
+    if (u === 'https://www.youtube.com/@kurz') return new Response('<html><link rel="canonical" href="https://www.youtube.com/channel/UCsXVk37bltHxD1rDPwtNM8Q"></html>');
+    if (u.includes('videos.xml?channel_id=UCsXVk37bltHxD1rDPwtNM8Q')) return new Response(yt);
+    return new Response('no', { status: 404 });
+  };
+  await run(env);
+  await env.FEEDS.put('src:k', '[]', { metadata: { fetchedAt: 0 } });
+  await run(env);
+  globalThis.fetch = saved;
+  assert.equal(calls.filter((u) => u === 'https://www.youtube.com/@kurz').length, 1, 'channel page fetched once');
+  assert.equal(await env.FEEDS.get('yt:@kurz'), 'UCsXVk37bltHxD1rDPwtNM8Q');
+  const items = JSON.parse((await env.FEEDS.get('src:k')));
+  assert.equal(items[0].videoId, 'abcDEF12345');
+});

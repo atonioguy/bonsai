@@ -249,3 +249,35 @@ export function libkeyUrl(libraryId, ids) {
   if (ids.pmid) return `https://libkey.io/libraries/${encodeURIComponent(libraryId)}/pmid/${ids.pmid}`;
   return '';
 }
+
+// ---------- daily news brief ----------
+// Five stories a day, one per source where possible, always including one good-news story.
+export const BRIEF_SIZE = 5;
+
+export function dayKey(now = Date.now()) {
+  const d = new Date(now);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+export function pickBrief(items, { topic = 'news', positive = new Set(), now = Date.now(), size = BRIEF_SIZE } = {}) {
+  const news = items.filter((i) => i.topic === topic);
+  const within = (hours) => news.filter((i) => i.published && now - Date.parse(i.published) < hours * 3600e3);
+  let pool = within(36);
+  if (pool.length < size) pool = within(96);
+  if (!pool.length) pool = news;
+  pool = pool.slice().sort((a, b) => (b.published || '').localeCompare(a.published || ''));
+  const good = pool.find((i) => positive.has(i.sourceId));
+  const room = size - (good ? 1 : 0);
+  const picked = [], used = new Set();
+  for (const i of pool) { // newest from each hard-news source first
+    if (picked.length >= room) break;
+    if (positive.has(i.sourceId) || used.has(i.sourceId)) continue;
+    picked.push(i); used.add(i.sourceId);
+  }
+  for (const i of pool) { // then fill up if there weren't enough sources
+    if (picked.length >= room) break;
+    if (!positive.has(i.sourceId) && !picked.includes(i)) picked.push(i);
+  }
+  if (good) picked.push(good);
+  return picked;
+}

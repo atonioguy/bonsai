@@ -438,3 +438,25 @@ dialog::backdrop { background: rgba(0, 0, 0, .35); }
   .progress-fill { transition: width var(--dur-3) var(--ease); }
 }
 @keyframes grow-in { from { transform: scale(.7); opacity: .4; } }
+
+/* ---------- daily brief ---------- */
+.brief { display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-4) var(--s-5); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); }
+.brief-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+.brief-title { font-family: var(--font-read); font-weight: 500; font-size: var(--t-2xl); line-height: var(--lh-2xl); }
+.brief-list { list-style: none; display: flex; flex-direction: column; }
+.brief-list li + li { border-top: 1px solid var(--line); }
+.brief-link { display: flex; flex-direction: column; gap: 2px; padding: var(--s-3) 0; min-height: var(--control); color: var(--text); text-decoration: none; }
+.brief-item { font-family: var(--font-read); font-size: var(--t-lg); line-height: var(--lh-2xl); }
+.brief-list li.is-read .brief-item { color: var(--text-2); }
+
+/* ---------- video ---------- */
+.thumb { position: relative; aspect-ratio: 16 / 9; border-radius: var(--r-sm); overflow: hidden; background: var(--surface-warm); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb-play {
+  position: absolute; left: var(--s-3); bottom: var(--s-3); display: flex; align-items: center; justify-content: center;
+  width: var(--control); height: var(--control); border-radius: var(--r-full); background: var(--surface); color: var(--text);
+}
+.player { aspect-ratio: 16 / 9; border-radius: var(--r-sm); overflow: hidden; background: #000; margin-top: var(--s-2); }
+.player.is-short { aspect-ratio: 9 / 16; max-height: 70vh; margin-inline: auto; }
+.player iframe { width: 100%; height: 100%; border: 0; display: block; }
+.video-desc { white-space: pre-line; font-size: calc(var(--t-md) * var(--read-scale)); line-height: var(--lh-md); font-family: var(--font-ui); color: var(--text-2); }

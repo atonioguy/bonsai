@@ -118,12 +118,15 @@ export async function render(main, app, id) {
 
   // ---------- text ----------
   const text = h('div', { class: 'prose' });
-  if (body) text.innerHTML = body; // sanitized
+  if (item.videoId) { // a video's description is plain text: keep its line breaks
+    const desc = h('div', { html: body }).textContent.trim().slice(0, 1500);
+    if (desc) text.appendChild(h('p', { class: 'video-desc', text: desc }));
+  } else if (body) text.innerHTML = body; // sanitized
   else text.appendChild(h('p', { text: item.excerpt }));
   const readArea = h('div', {}, text);
 
   // ---------- full text (research papers): load it here, or open it in the browser ----------
-  const ids = articleIds(item); // PubMed/journal items: offer full text even with a long abstract
+  const ids = item.videoId ? null : articleIds(item); // PubMed/journal items: offer full text even with a long abstract
   const fullWrap = h('div', { class: 'fulltext' });
   const showFull = (html) => {
     const prose = h('div', { class: 'prose' });
@@ -164,8 +167,8 @@ export async function render(main, app, id) {
   }
 
   const open = item.url
-    ? h('a', { class: hasFull || ids ? 'btn btn-secondary' : 'btn btn-primary', href: item.url, target: '_blank', rel: 'noopener noreferrer' },
-      'Open original', icon('external', 18))
+    ? h('a', { class: hasFull || ids || item.videoId ? 'btn btn-secondary' : 'btn btn-primary', href: item.url, target: '_blank', rel: 'noopener noreferrer' },
+      item.videoId ? 'Open on YouTube' : 'Open original', icon('external', 18))
     : null;
 
   // ---------- end of article ----------
@@ -219,9 +222,15 @@ export async function render(main, app, id) {
       h('header', { class: 'article-head' },
         h('p', { class: 'meta', text: [item.sourceName, fmtDate(item.published) || relTime(item.published)].filter(Boolean).join(' · ') }),
         h('h1', { class: 'article-title', text: item.title }),
-        item.audioUrl ? h('audio', { controls: true, preload: 'none', src: item.audioUrl }) : null),
+        item.audioUrl ? h('audio', { controls: true, preload: 'none', src: item.audioUrl }) : null,
+        item.videoId && /^[\w-]{11}$/.test(item.videoId) ? h('div', { class: 'player' + (item.short ? ' is-short' : '') },
+          h('iframe', {
+            src: `https://www.youtube-nocookie.com/embed/${item.videoId}?rel=0&playsinline=1`,
+            title: item.title, loading: 'lazy', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin',
+            allow: 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+          })) : null),
       readArea,
-      !hasFull && !ids && item.url ? h('p', { class: 'meta', style: 'margin-top: var(--s-5)', text: 'The full text isn’t in the feed.' }) : null,
+      !hasFull && !ids && !item.videoId && item.url ? h('p', { class: 'meta', style: 'margin-top: var(--s-5)', text: 'The full text isn’t in the feed.' }) : null,
       ids && !post.fullHtml ? loadArea : null,
       open ? h('div', { class: 'article-actions' }, open) : null,
       listEnd,

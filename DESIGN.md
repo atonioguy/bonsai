@@ -79,7 +79,11 @@ engagement numbers, and no metadata rows.
     you finish it.
   - **Free read**: reading with no timer. All the active time counts.
   - **Throwback**: a saved quote shown again in the feed.
-  - **Topic**: Mind, Trans health, Queer history, Tech & society, Tao.
+  - **Topic**: Mind, Health, Science, History, Queer history, Trans health,
+    Tech & society, Tao, News, Nearby.
+  - **Today's brief**: the once-a-day card of five news stories, one of them
+    good news. News stays out of the main feed unless switched on in Settings.
+  - **Video** / **Short**: YouTube posts, played in the app.
   - **Source**: a journal, newsletter, podcast or site.
   - **Side Quest**: the companion app sessions are logged to.
 
@@ -212,6 +216,7 @@ decide, or act. Otherwise cut it.
   - The book card, a different kind of thing with its own action.
   - The throwback (your own words) and the reading-list card (outlined: your
     own queue coming back around).
+  - Today's brief (outlined, on paper): a daily digest, not a post.
   - Floating layers: Save quote bar, toasts, the Aa popover, bottom sheets,
     and the Recently opened drawer.
 

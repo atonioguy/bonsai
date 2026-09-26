@@ -1,7 +1,7 @@
 import * as db from '../db.js';
 import {
   mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, SESSION_CHOICES,
-  dueListed, afterListShown, newCounts, splitNew,
+  dueListed, afterListShown, newCounts, splitNew, pickBrief, dayKey, BRIEF_SIZE,
 } from '../logic.js';
 import { h, enso, icon } from '../ui.js';
 import { currentBook, percent } from '../books.js';
@@ -56,8 +56,28 @@ export async function render(main, app) {
     await markSeen(cache.items.map((i) => i.id));
   }
 
+  // Topics marked "brief" (News) stay out of All unless turned on in Settings; their tab still lists them.
+  const briefTopics = new Set(app.config.topics.filter((t) => t.brief).map((t) => t.id));
+  const positive = new Set(app.config.sources.filter((x) => x.positive).map((x) => x.id));
+  const inAll = (items) => (s.newsInFeed ? items : items.filter((i) => !briefTopics.has(i.topic)));
+
+  // Today's brief: picked once a day (so it doesn't reshuffle), refilled if it came up short.
+  async function brief() {
+    if (!cache || !briefTopics.size) return [];
+    const byId = new Map(cache.items.map((i) => [i.id, i]));
+    const saved = await db.get('kv', 'brief');
+    let picked = saved && saved.day === dayKey() ? saved.ids.map((id) => byId.get(id)).filter(Boolean) : [];
+    if (picked.length < BRIEF_SIZE) {
+      picked = pickBrief(cache.items, { topic: [...briefTopics][0], positive });
+      await db.put('kv', 'brief', { day: dayKey(), ids: picked.map((i) => i.id) });
+    }
+    return picked;
+  }
+  let briefItems = await brief();
+
   function paintCounts() {
-    const { all, byTopic } = cache && seen ? newCounts(cache.items, seen, muted) : { all: 0, byTopic: {} };
+    const { byTopic } = cache && seen ? newCounts(cache.items, seen, muted) : { byTopic: {} };
+    const { all } = cache && seen ? newCounts(inAll(cache.items), seen, muted) : { all: 0 };
     for (const tab of tabEls) {
       const n = tab.dataset.topic === 'all' ? all : byTopic[tab.dataset.topic] || 0;
       tab._count.textContent = n ? String(n) : '';
@@ -88,7 +108,7 @@ export async function render(main, app) {
 
   function draw() {
     watcher.disconnect();
-    const mixed = cache ? mixFeed(cache.items, { topic: app.topic, muted }) : [];
+    const mixed = cache ? mixFeed(app.topic === 'all' ? inAll(cache.items) : cache.items, { topic: app.topic, muted }) : [];
     const { fresh, older } = splitNew(mixed, seen);
     const entries = [...fresh, ...older];
     const all = app.topic === 'all'; // the book card and your own cards belong to the main mix only
@@ -97,11 +117,13 @@ export async function render(main, app) {
       const at = cards.findIndex((c) => c.type === 'entry' && c.data === older[0]);
       cards.splice(at, 0, { type: 'divider' });
     }
+    if ((all || briefTopics.has(app.topic)) && briefItems.length) cards.unshift({ type: 'brief' });
     list.replaceChildren(...cards.map((c) => (
       c.type === 'entry' ? entryEl(c.data, opened[c.data.id])
         : c.type === 'book' ? bookEl(c.data, s)
           : c.type === 'listed' ? listedEl(c.data)
             : c.type === 'divider' ? h('div', { class: 'earlier', role: 'separator' }, h('span', { text: 'Earlier' }))
+              : c.type === 'brief' ? briefEl(briefItems, opened, positive)
               : throwbackEl(c.data))));
     list.querySelectorAll('.entry, .throwback, .listed').forEach((el) => watcher.observe(el));
     list.appendChild(endEl(entries.length));
@@ -130,7 +152,7 @@ export async function render(main, app) {
     const expected = app.config.sources.filter((x) => x.feed).length;
     const loaded = (cache.status || []).length;
     const filling = expected && loaded < expected
-      ? h('p', { class: 'meta', text: `${loaded} of ${expected} sources loaded. The feed server adds one about every 5 minutes.` })
+      ? h('p', { class: 'meta', text: `${loaded} of ${expected} sources loaded. The feed server adds one every couple of minutes.` })
       : null;
     return h('div', { class: 'feed-end' },
       h('p', { class: 'meta', role: 'status' },
@@ -154,6 +176,7 @@ export async function render(main, app) {
       cache = { ...normalizeFeed(await r.json()), fetchedAt: Date.now() };
       await db.put('kv', 'feed', cache);
       await initSeen();
+      briefItems = await brief();
     } catch (e) {
       error = e instanceof TypeError ? 'The feed server couldn’t be reached.' : e.message;
     }
@@ -165,7 +188,7 @@ export async function render(main, app) {
       list.lastChild.replaceWith(endEl(list.querySelectorAll('.entry').length));
       paintCounts();
       const shown = new Set([...list.querySelectorAll('.entry')].map((e) => e.dataset.id));
-      const waiting = mixFeed(cache?.items || [], { topic: app.topic, muted }).filter((i) => !seen?.[i.id] && !shown.has(i.id)).length;
+      const waiting = mixFeed(app.topic === 'all' ? inAll(cache?.items || []) : cache?.items || [], { topic: app.topic, muted }).filter((i) => !seen?.[i.id] && !shown.has(i.id)).length;
       if (waiting) {
         pill.replaceChildren(icon('back', 18), h('span', { text: waiting === 1 ? '1 new article' : waiting + ' new articles' }));
         pill.hidden = false;
@@ -188,8 +211,12 @@ export async function render(main, app) {
 
 // Opened articles are quieter, and say so in words (never color alone).
 function entryEl(item, openedAt) {
-  const meta = [item.kind === 'audio' ? 'Audio' : null, item.sourceName, relTime(item.published), openedAt ? 'Opened' : null].filter(Boolean).join(' · ');
+  const kind = item.videoId ? (item.short ? 'Short' : 'Video') : item.kind === 'audio' ? 'Audio' : null;
+  const meta = [kind, item.sourceName, relTime(item.published), openedAt ? 'Opened' : null].filter(Boolean).join(' · ');
   return h('article', { class: 'entry' + (openedAt ? ' is-read' : ''), 'data-id': item.id },
+    item.videoId ? h('div', { class: 'thumb' },
+      h('img', { src: `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`, alt: '', loading: 'lazy', decoding: 'async' }),
+      h('span', { class: 'thumb-play', 'aria-hidden': 'true' }, icon('play', 20))) : null,
     h('p', { class: 'meta', text: meta }),
     h('h2', { class: 'entry-title' }, h('a', { href: '#/item/' + encodeURIComponent(item.id) }, item.title)),
     item.excerpt && item.excerpt !== item.title ? h('p', { class: 'entry-excerpt', text: item.excerpt }) : null);
@@ -222,6 +249,19 @@ function bookEl({ meta, f }, s) {
       h('div', { class: 'book-buttons' },
         start,
         h('a', { class: 'btn btn-secondary', href: '#/read/' + meta.id + '/free' }, 'Free read'))));
+}
+
+// Today's brief: five headlines, one of them good news.
+function briefEl(items, opened, positive) {
+  const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  return h('section', { class: 'brief', 'aria-labelledby': 'brief-title' },
+    h('div', { class: 'brief-head' },
+      h('h2', { class: 'brief-title', id: 'brief-title', text: 'Today’s brief' }),
+      h('p', { class: 'meta', text: today })),
+    h('ol', { class: 'brief-list' }, items.map((i) => h('li', { class: opened[i.id] ? 'is-read' : '' },
+      h('a', { class: 'brief-link', href: '#/item/' + encodeURIComponent(i.id) },
+        h('span', { class: 'brief-item', text: i.title }),
+        h('span', { class: 'meta', text: [positive.has(i.sourceId) ? 'Good news' : null, i.sourceName, opened[i.id] ? 'Opened' : null].filter(Boolean).join(' · ') }))))));
 }
 
 // A reading-list article coming back around.

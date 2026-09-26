@@ -62,6 +62,7 @@ export const DEFAULT_SETTINGS = {
   sqUrl: '',
   sqKey: '',
   libraryId: '',
+  newsInFeed: false,
   muted: [],
 };
 

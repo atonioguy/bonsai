@@ -1,7 +1,7 @@
 // bonsai-feeds — Cloudflare Worker
-// Keeps one small KV entry per source. Every 5 minutes (cron) it refreshes the one source
+// Keeps one small KV entry per source. Every 2 minutes (cron) it refreshes the one source
 // that's been waiting longest, so each run stays well inside the free plan's CPU limit
-// (a large feed takes a few ms to parse). With ~22 sources, each refreshes about every 2 h.
+// (a large feed takes a few ms to parse). With ~50 sources, each refreshes about every 2 h.
 // GET /feed stitches the stored entries together as text, without re-parsing them.
 // Holds no personal keys: it only reads public feeds.
 
@@ -96,7 +96,7 @@ async function refreshNext(env, sources) {
 async function refreshOne(env, s) {
   const key = 'src:' + s.id;
   try {
-    const all = await fetchOne(s);
+    const all = await fetchOne(s, env);
     const open = s.hideLocked ? all.filter((it) => !isLocked(it)) : all;
     const kept = open.slice(0, PER_SOURCE);
     await env.FEEDS.put(key, JSON.stringify(kept), {
@@ -111,8 +111,32 @@ async function refreshOne(env, s) {
   }
 }
 
-async function fetchOne(source) {
-  const r = await fetch(source.feed, {
+// "youtube:@handle" → that channel's video feed. The channel id is looked up once and kept.
+async function feedUrl(source, env) {
+  const m = /^youtube:(.+)$/.exec(source.feed || '');
+  if (!m) return source.feed;
+  let id = m[1];
+  if (!/^UC[\w-]{22}$/.test(id)) {
+    const key = 'yt:' + id.toLowerCase();
+    id = await env.FEEDS.get(key);
+    if (!id) {
+      const page = await fetch('https://www.youtube.com/' + m[1].replace(/^@?/, '@'), {
+        headers: { 'accept-language': 'en-US,en;q=0.8', 'user-agent': 'Mozilla/5.0 (compatible; BonsaiFeeds/0.1)' },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT),
+      });
+      if (!page.ok) throw new Error('YouTube channel page: HTTP ' + page.status);
+      const html = await page.text();
+      id = (/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[\w-]{22})"/.exec(html)
+        || /"externalId":"(UC[\w-]{22})"/.exec(html) || [])[1];
+      if (!id) throw new Error('YouTube channel not found: ' + m[1]);
+      await env.FEEDS.put(key, id);
+    }
+  }
+  return 'https://www.youtube.com/feeds/videos.xml?channel_id=' + id;
+}
+
+async function fetchOne(source, env) {
+  const r = await fetch(await feedUrl(source, env), {
     headers: {
       'user-agent': 'BonsaiFeeds/0.1 (personal feed reader; +https://github.com/atonioguy/bonsai)',
       'accept': 'application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.5',

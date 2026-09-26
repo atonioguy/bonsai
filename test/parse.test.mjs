@@ -58,3 +58,15 @@ test('helpers', () => {
   const ex = makeExcerpt(long, 50);
   assert.ok(ex.length <= 51 && ex.endsWith('…'));
 });
+
+test('YouTube channel feed: video id, Shorts, thumbnail, description', () => {
+  const [v, s] = parseFeed(fx('youtube.xml'), { id: 'yt', name: 'Sample Channel', topic: 'science', kind: 'video' });
+  assert.equal(v.kind, 'video');
+  assert.equal(v.videoId, 'abcDEF12345');
+  assert.equal(v.short, false);
+  assert.equal(v.url, 'https://www.youtube.com/watch?v=abcDEF12345');
+  assert.match(v.excerpt, /^Line one of the description\./);
+  assert.equal(v.image, 'https://i2.ytimg.com/vi/abcDEF12345/hqdefault.jpg');
+  assert.equal(s.videoId, 'shortID_123');
+  assert.equal(s.short, true);
+});

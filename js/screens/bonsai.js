@@ -15,7 +15,7 @@ export async function render(main, app) {
   const grew = last != null && gr.points > last ? gr.points - last : 0;
   await db.put('kv', 'bonsaiLast', gr.points);
 
-  const topics = app.config.topics.slice(0, 5);
+  const topics = app.config.topics.slice(0, 10);
   const week = totals({ sessions, posts }, weekStart());
   const ever = totals({ sessions, posts });
 
@@ -52,12 +52,17 @@ export async function render(main, app) {
 }
 
 // ---------- drawing ----------
-const BRANCHES = [ // crown first, then alternating sides lower down
+const BRANCHES = [ // crown first, then alternating sides, one per topic
   { t: 1, side: 0 },
   { t: 0.66, side: -1 },
   { t: 0.76, side: 1 },
   { t: 0.42, side: -1 },
   { t: 0.52, side: 1 },
+  { t: 0.86, side: -1 },
+  { t: 0.9, side: 1 },
+  { t: 0.3, side: -1 },
+  { t: 0.36, side: 1 },
+  { t: 0.56, side: -1 },
 ];
 
 function bez(p0, p1, p2, p3, t) {
