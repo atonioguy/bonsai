@@ -22,6 +22,9 @@ export function enablePostMenu(root, lookup, onChange) {
     if (item && !document.querySelector('dialog.peek[open]')) openPostMenu(item, onChange);
   };
   const onContext = (e) => { const el = postOf(e); if (!el) return; e.preventDefault(); clearTimeout(timer); open(el); };
+  // Holding a post opens the preview; it never starts a text selection (iOS keeps the hold going
+  // into whatever appears under the finger, so the selection is also cleared when the menu opens).
+  const onSelectStart = (e) => { if (postOf(e)) e.preventDefault(); };
   const onDown = (e) => {
     fired = false; // a new touch always starts fresh (iOS may send no click after a long press)
     if (e.pointerType === 'mouse') return;
@@ -29,7 +32,12 @@ export function enablePostMenu(root, lookup, onChange) {
     if (!el) return;
     start = [e.clientX, e.clientY];
     fired = false;
-    timer = setTimeout(() => { fired = true; if (navigator.vibrate) navigator.vibrate(8); open(el); }, LONG_PRESS);
+    timer = setTimeout(() => {
+      fired = true;
+      getSelection()?.removeAllRanges();
+      if (navigator.vibrate) navigator.vibrate(8);
+      open(el);
+    }, LONG_PRESS);
   };
   const onMove = (e) => { if (start && Math.hypot(e.clientX - start[0], e.clientY - start[1]) > SLOP) clearTimeout(timer); };
   const onUp = () => {
@@ -39,6 +47,7 @@ export function enablePostMenu(root, lookup, onChange) {
   };
   const onClick = (e) => { if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; } }; // the hold opened the menu, not the post
   root.addEventListener('contextmenu', onContext);
+  root.addEventListener('selectstart', onSelectStart);
   root.addEventListener('pointerdown', onDown);
   root.addEventListener('pointermove', onMove);
   root.addEventListener('pointerup', onUp);
@@ -47,12 +56,29 @@ export function enablePostMenu(root, lookup, onChange) {
   return () => {
     clearTimeout(timer);
     root.removeEventListener('contextmenu', onContext);
+    root.removeEventListener('selectstart', onSelectStart);
     root.removeEventListener('pointerdown', onDown);
     root.removeEventListener('pointermove', onMove);
     root.removeEventListener('pointerup', onUp);
     root.removeEventListener('pointercancel', onUp);
     root.removeEventListener('click', onClick, true);
   };
+}
+
+// Shared by the menu and the swipe buttons. Each shows a toast with Undo.
+export async function toggleReadingList(item, onChange = () => {}) {
+  const post = await ensurePost(item);
+  const was = post.list;
+  post.list = was ? null : newListEntry();
+  await savePost(post);
+  onChange('list', item);
+  toast(was ? 'Removed from reading list' : 'Added to reading list', { label: 'Undo', run: async () => { post.list = was; await savePost(post); onChange('list', item); } });
+}
+
+export async function hidePost(item, onChange = () => {}) {
+  await setHidden(item.id, true);
+  onChange('hidden', item);
+  toast('Post hidden', { label: 'Undo', run: async () => { await setHidden(item.id, false); onChange('hidden', item); } });
 }
 
 export async function openPostMenu(item, onChange = () => {}) {
@@ -74,13 +100,7 @@ export async function openPostMenu(item, onChange = () => {}) {
     icon(name, 20), h('span', { text: label }));
 
   const menu = h('div', { class: 'peek-menu', role: 'menu', 'aria-label': 'Actions' },
-    act(post.list ? 'Remove from reading list' : 'Add to reading list', post.list ? 'listed' : 'listAdd', async () => {
-      const was = post.list;
-      post.list = was ? null : newListEntry();
-      await savePost(post);
-      onChange('list', item);
-      toast(was ? 'Removed from reading list' : 'Added to reading list', { label: 'Undo', run: async () => { post.list = was; await savePost(post); onChange('list', item); } });
-    }),
+    act(post.list ? 'Remove from reading list' : 'Add to reading list', post.list ? 'listed' : 'listAdd', () => toggleReadingList(item, onChange)),
     act(post.bookmark ? 'Bookmark folders' : 'Bookmark', post.bookmark ? 'bookmarked' : 'bookmark', async () => {
       if (post.bookmark) return bookmarkSheet(post, { onChange: () => onChange('bookmark', item) });
       post.bookmark = { at: Date.now(), folders: [] };
@@ -93,11 +113,7 @@ export async function openPostMenu(item, onChange = () => {}) {
       onChange('read', item);
     }),
     act('Share', 'share', () => sharePost(item)),
-    act('Hide post', 'hide', async () => {
-      await setHidden(item.id, true);
-      onChange('hidden', item);
-      toast('Post hidden', { label: 'Undo', run: async () => { await setHidden(item.id, false); onChange('hidden', item); } });
-    }));
+    act('Hide post', 'hide', () => hidePost(item, onChange)));
 
   dlg.append(h('div', { class: 'peek-inner' }, card, menu));
   dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });

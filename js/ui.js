@@ -50,6 +50,7 @@ const ICONS = {
   play: `<path fill="currentColor" d="M8 5l11 7-11 7z"/>`,
   check: `<path ${STROKE} d="M5 12l5 5 9-10"/>`,
   unread: `<circle ${STROKE} cx="12" cy="12" r="8"/><circle fill="currentColor" cx="12" cy="12" r="3.5"/>`,
+  glasses: `<circle ${STROKE} cx="6.5" cy="14" r="3.5"/><circle ${STROKE} cx="17.5" cy="14" r="3.5"/><path ${STROKE} d="M10 14c1.2-1 2.8-1 4 0M3 13l2-6h2M21 13l-2-6h-2"/>`,
   hide: `<path ${STROKE} d="M4 12s3-6 8-6c1.6 0 3 .5 4.2 1.3M20 12s-3 6-8 6c-1.6 0-3-.5-4.2-1.3"/><path ${STROKE} d="M5 19L19 5"/>`,
   arrowDown: `<path ${STROKE} d="M12 5v14M6 13l6 6 6-6"/>`,
   arrowUp: `<path ${STROKE} d="M12 19V5M6 11l6-6 6 6"/>`,

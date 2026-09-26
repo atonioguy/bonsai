@@ -222,9 +222,14 @@ decide, or act. Otherwise cut it.
   - Floating layers: Save quote bar, toasts, the Aa popover, bottom sheets,
     the Recently opened drawer, the long-press preview + action menu, and the
     movable jump button (round is fine: it's a genuinely round control).
+  - Swipe actions: swiping a feed post left reveals two square buttons on its
+    right edge, Reading list (glasses, `--accent`) and Hide (crossed-out eye,
+    `--surface-warm`). They're icon-only because they repeat the long-press
+    menu's labelled actions, and each has an accessible name.
 
   Posts in the feed are separated by a hairline (`--line`), not boxes. Opened
-  posts get a quieter title plus the word "Opened" in the meta line.
+  posts get a quieter title plus the word "Opened" in the meta line. Holding a
+  post never selects its text: the hold opens the preview instead.
 
   Articles sit directly on the page. No cards inside cards.
 - **Empty space:** whitespace is intentional, so don't fill it with UI. If a

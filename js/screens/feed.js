@@ -8,6 +8,7 @@ import { currentBook, percent } from '../books.js';
 import { openedMap, seenMap, markSeen, allPosts, savePost, hiddenMap, setHidden } from '../posts.js';
 import { entryEl, hiddenEl } from '../entries.js';
 import { enablePostMenu } from '../postmenu.js';
+import { enableSwipe } from '../swipe.js';
 
 const STALE = 10 * 60_000; // refetch the feed when the cached copy is older than this
 
@@ -233,6 +234,8 @@ export async function render(main, app) {
     });
   }
   const detachMenu = enablePostMenu(list, lookup, (kind, it) => refresh(it.id));
+  // Swipe left for Reading list / Hide (the Reading list tab only needs the first).
+  const detachSwipe = enableSwipe(list, lookup, (kind, it) => refresh(it.id), { canHide: () => app.topic !== '_list' });
 
   await initSeen();
   draw();
@@ -257,6 +260,7 @@ export async function render(main, app) {
     app.feedScroll = window.scrollY;
     watcher.disconnect();
     detachMenu();
+    detachSwipe();
     clearTimeout(seenTimer);
     if (pendingSeen.length) markSeen(pendingSeen.splice(0));
   };

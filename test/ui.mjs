@@ -229,6 +229,36 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.click('dialog.peek button:has-text("Mark as unread")');
   await page.waitForSelector('.entry[data-id="gen2"]:not(.is-read)');
 
+  // swipe left (touch): Reading list and Hide buttons slide in on the right
+  const swipe = (id, dist) => page.evaluate(([id, dist]) => {
+    const el = document.querySelector(`.entry[data-id="${id}"] .entry-title`);
+    const r = el.getBoundingClientRect();
+    const x = r.x + r.width - 20, y = r.y + 10;
+    const ev = (type, cx) => el.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'touch', isPrimary: true, pointerId: 7, clientX: cx, clientY: y }));
+    ev('pointerdown', x);
+    for (let i = 1; i <= 8; i++) ev('pointermove', x - (dist * i) / 8);
+    ev('pointerup', x - dist);
+  }, [id, dist]);
+  await swipe('gen2', 20); // too short: springs back
+  await page.waitForFunction(() => !document.querySelector('.entry[data-id="gen2"] .swipe-actions'));
+  await swipe('gen2', 120);
+  await page.waitForTimeout(300);
+  const bar = await page.$eval('.entry[data-id="gen2"] .swipe-actions', (b) => b.getBoundingClientRect().width);
+  check(bar > 132 && bar < 140, 'swipe opens both buttons (' + bar + 'px)');
+  check(!(await page.evaluate(() => String(getSelection()))), 'no text selected by a swipe');
+  await shot('04d-swipe');
+  await page.evaluate(() => document.querySelector('.tabs').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch', isPrimary: true, pointerId: 8 })));
+  await page.waitForFunction(() => !document.querySelector('.entry[data-id="gen2"] .swipe-actions'));
+  await swipe('gen2', 120);
+  await page.click('.entry[data-id="gen2"] .swipe-later');
+  await page.waitForFunction(async () => { const db = await import('/js/db.js'); return Boolean((await db.get('posts', 'gen2'))?.list); });
+  await swipe('gen2', 120);
+  check((await page.getAttribute('.entry[data-id="gen2"] .swipe-later', 'aria-label')) === 'Remove from reading list', 'swipe knows the post is listed');
+  await page.click('.entry[data-id="gen2"] .swipe-hide');
+  await page.waitForSelector('.entry-hidden[data-id="gen2"]');
+  await page.click('.entry-hidden[data-id="gen2"] button:has-text("Show")');
+  await page.waitForSelector('.entry[data-id="gen2"]:not(.swiping)');
+
   // the Reading list as a feed of its own
   await page.click('.tab[data-topic="_list"]');
   await page.waitForSelector('.entry[data-id="gen1"]');

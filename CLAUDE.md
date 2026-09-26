@@ -31,6 +31,7 @@ setup steps plainly.
 | `js/readtools.js`, `js/recent.js` | The Aa popover; the Recently opened drawer |
 | `js/entries.js`, `js/postmenu.js`, `js/bookmark.js` | Post cards (feed, reading list, folders); long-press/right-click preview + actions; the bookmark folder sheet |
 | `js/jump.js` | The movable jump-to-bottom / back-to-top button |
+| `js/swipe.js` | Swipe a feed post left for the Reading list / Hide buttons |
 | `worker/` | `bonsai-feeds` Cloudflare Worker. Edit `worker.js`/`parse.js`, then `node worker/build.mjs` regenerates `bonsai-feeds.js`, the single file the owner pastes into the Cloudflare dashboard |
 | `sources.json` | Topics, sources (feed URLs) and suggested free books. Read by both the app and the worker |
 | `test/` | `node --test test/*.test.mjs` (unit), `node test/ui.mjs` (browser run + screenshots) |

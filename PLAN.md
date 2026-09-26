@@ -195,6 +195,10 @@ takeaways.
     v0.6.2: schedule every 5 minutes, not 2, to stay well under the free
     plan's 1,000 KV lists a day.
 
+14. ✅ v0.6.3: swipe a feed post left for two quick buttons, Reading list
+    (glasses) and Hide (crossed-out eye); holding a post never selects its
+    text (the preview opens instead).
+
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT
 Health & Wellness, Equality Arlington, UTA LGBTQ+ Program on events.uta.edu,

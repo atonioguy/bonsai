@@ -478,7 +478,19 @@ dialog::backdrop { background: rgba(0, 0, 0, .35); }
 /* ---------- posts: meta row with an action, hidden posts, no system callout on hold ---------- */
 .entry-meta-row { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); margin: calc(-1 * var(--s-2)) 0; }
 .entry-meta-row .btn-icon { margin-right: calc(-1 * var(--s-3)); }
-.entry[data-post], .brief-link { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+/* Holding a post opens its preview, so nothing in a post (or the preview) is selectable. */
+.entry[data-post], .entry[data-post] *, .brief-link, dialog.peek, dialog.peek * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+/* Swipe a post left: its content slides over and two buttons appear on the right edge. */
+.swipe-on .entry[data-post] { touch-action: pan-y; }
+.entry.swiping { overflow: hidden; }
+.entry.swiping > :not(.swipe-actions) { transform: translateX(var(--dx, 0px)); }
+.swipe-actions { position: absolute; right: 0; bottom: 0; z-index: 2; display: flex; width: max(0px, calc(-1 * var(--dx, 0px) - var(--s-2))); border-radius: var(--r-sm); overflow: hidden; }
+.entry.swipe-anim > * { transition: transform var(--dur-2) var(--ease), width var(--dur-2) var(--ease); }
+.swipe-btn { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; border: 0; padding: 0; overflow: hidden; cursor: pointer; }
+.swipe-later { background: var(--accent); color: var(--accent-ink); }
+.swipe-hide { background: var(--surface-warm); color: var(--text); }
+.swipe-btn:focus-visible { outline: 2px solid var(--text); outline-offset: -4px; }
 .entry-hidden { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: var(--control); padding: 0 var(--s-3); border: 1px dashed var(--line-strong); border-radius: var(--r-sm); }
 .entry + .entry-hidden, .entry-hidden + .entry { margin-top: 0; }
 
