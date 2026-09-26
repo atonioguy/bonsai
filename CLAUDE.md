@@ -12,6 +12,8 @@ setup steps plainly.
    removal pass after) applies to every screen.
 3. `css/tokens.css`: the only source of colors, spacing, type, radii and
    motion.
+4. **`HANDOFF.md`**: live state, what's unconfirmed on the phone, what's
+   parked, and how the owner likes to work. Update it at the end of a session.
 
 ## Map
 
