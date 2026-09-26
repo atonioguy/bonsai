@@ -5,7 +5,9 @@ import {
 } from '../logic.js';
 import { h, enso, icon } from '../ui.js';
 import { currentBook, percent } from '../books.js';
-import { openedMap, seenMap, markSeen, allPosts, savePost } from '../posts.js';
+import { openedMap, seenMap, markSeen, allPosts, savePost, hiddenMap, setHidden } from '../posts.js';
+import { entryEl, hiddenEl } from '../entries.js';
+import { enablePostMenu } from '../postmenu.js';
 
 const STALE = 10 * 60_000; // refetch the feed when the cached copy is older than this
 
@@ -23,7 +25,7 @@ export async function render(main, app) {
   } });
   main.append(h('h1', { class: 'visually-hidden', text: 'Feed' }), tabs, pill, list);
 
-  const topics = [{ id: 'all', name: 'All' }, ...app.config.topics];
+  const topics = [{ id: 'all', name: 'All' }, { id: '_list', name: 'Reading list' }, ...app.config.topics];
   if (!topics.some((t) => t.id === app.topic)) app.topic = 'all';
   const tabEls = topics.map((t) => {
     const count = h('span', { class: 'tab-count' });
@@ -42,7 +44,7 @@ export async function render(main, app) {
     return tab;
   });
 
-  const [book, saved, posts, opened] = await Promise.all([currentBook(), db.all('saved'), allPosts(), openedMap()]);
+  let [book, saved, posts, opened, hidden] = await Promise.all([currentBook(), db.all('saved'), allPosts(), openedMap(), hiddenMap()]);
   const throwbacks = dueThrowbacks(saved, Date.now(), 3);
   const listed = dueListed(posts, Date.now(), 2);
   let seen = await seenMap();
@@ -79,7 +81,7 @@ export async function render(main, app) {
     const { byTopic } = cache && seen ? newCounts(cache.items, seen, muted) : { byTopic: {} };
     const { all } = cache && seen ? newCounts(inAll(cache.items), seen, muted) : { all: 0 };
     for (const tab of tabEls) {
-      const n = tab.dataset.topic === 'all' ? all : byTopic[tab.dataset.topic] || 0;
+      const n = tab.dataset.topic === 'all' ? all : tab.dataset.topic === '_list' ? 0 : byTopic[tab.dataset.topic] || 0;
       tab._count.textContent = n ? String(n) : '';
       tab.setAttribute('aria-label', n ? `${tab._name}, ${n} new` : tab._name);
     }
@@ -106,8 +108,23 @@ export async function render(main, app) {
     seenTimer = setTimeout(() => { markSeen(pendingSeen.splice(0)); paintCounts(); }, 400);
   }, { threshold: 0.6 });
 
+  const itemEl = (it) => (hidden[it.id]
+    ? hiddenEl(it, async () => { hidden = await setHidden(it.id, false); refresh(it.id); })
+    : entryEl(it, { openedAt: opened[it.id] }));
+
+  // The Reading list tab: your queue as a feed of its own (oldest added first, like a queue).
+  function drawList() {
+    const queued = posts.filter((p) => p.list).sort((a, b) => a.list.addedAt - b.list.addedAt);
+    list.replaceChildren(...(queued.length
+      ? queued.map((p) => entryEl(p.item, { openedAt: opened[p.id], extra: [p.scroll > 0.02 ? Math.round(p.scroll * 100) + '% read' : 'Not started'] }))
+      : [h('div', { class: 'empty' },
+        h('h2', { text: 'Reading list is empty' }),
+        h('p', { class: 'lead', text: 'Long-press a post (or right-click) and choose Add to reading list.' }))]));
+  }
+
   function draw() {
     watcher.disconnect();
+    if (app.topic === '_list') return drawList();
     const mixed = cache ? mixFeed(app.topic === 'all' ? inAll(cache.items) : cache.items, { topic: app.topic, muted }) : [];
     const { fresh, older } = splitNew(mixed, seen);
     const entries = [...fresh, ...older];
@@ -119,7 +136,7 @@ export async function render(main, app) {
     }
     if ((all || briefTopics.has(app.topic)) && briefItems.length) cards.unshift({ type: 'brief' });
     list.replaceChildren(...cards.map((c) => (
-      c.type === 'entry' ? entryEl(c.data, opened[c.data.id])
+      c.type === 'entry' ? itemEl(c.data)
         : c.type === 'book' ? bookEl(c.data, s)
           : c.type === 'listed' ? listedEl(c.data)
             : c.type === 'divider' ? h('div', { class: 'earlier', role: 'separator' }, h('span', { text: 'Earlier' }))
@@ -196,6 +213,26 @@ export async function render(main, app) {
     }
   }
 
+  // Long-press / right-click menu. After an action only that post is redrawn, so nothing jumps.
+  const lookup = (id) => cache?.items.find((i) => i.id === id) || posts.find((p) => p.id === id)?.item || null;
+  async function refresh(id) {
+    [opened, hidden, posts] = await Promise.all([openedMap(), hiddenMap(), allPosts()]);
+    if (app.topic === '_list') return drawList();
+    const it = lookup(id);
+    for (const el of list.querySelectorAll(`[data-id="${CSS.escape(id)}"]`)) {
+      if (it && (el.classList.contains('entry') || el.classList.contains('entry-hidden'))) {
+        const next = itemEl(it);
+        el.replaceWith(next);
+        if (next.classList.contains('entry')) watcher.observe(next);
+      }
+    }
+    list.querySelectorAll('.brief-list li').forEach((li) => {
+      const a = li.querySelector('[data-post]');
+      if (a) li.classList.toggle('is-read', Boolean(opened[a.dataset.post]));
+    });
+  }
+  const detachMenu = enablePostMenu(list, lookup, (kind, it) => refresh(it.id));
+
   await initSeen();
   draw();
   if (app.feedScroll) { const y = app.feedScroll; app.onShown = () => window.scrollTo(0, y); }
@@ -204,22 +241,10 @@ export async function render(main, app) {
   return () => {
     app.feedScroll = window.scrollY;
     watcher.disconnect();
+    detachMenu();
     clearTimeout(seenTimer);
     if (pendingSeen.length) markSeen(pendingSeen.splice(0));
   };
-}
-
-// Opened articles are quieter, and say so in words (never color alone).
-function entryEl(item, openedAt) {
-  const kind = item.videoId ? (item.short ? 'Short' : 'Video') : item.kind === 'audio' ? 'Audio' : null;
-  const meta = [kind, item.sourceName, relTime(item.published), openedAt ? 'Opened' : null].filter(Boolean).join(' · ');
-  return h('article', { class: 'entry' + (openedAt ? ' is-read' : ''), 'data-id': item.id },
-    item.videoId ? h('div', { class: 'thumb' },
-      h('img', { src: `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`, alt: '', loading: 'lazy', decoding: 'async' }),
-      h('span', { class: 'thumb-play', 'aria-hidden': 'true' }, icon('play', 20))) : null,
-    h('p', { class: 'meta', text: meta }),
-    h('h2', { class: 'entry-title' }, h('a', { href: '#/item/' + encodeURIComponent(item.id) }, item.title)),
-    item.excerpt && item.excerpt !== item.title ? h('p', { class: 'entry-excerpt', text: item.excerpt }) : null);
 }
 
 // Book card: pick a timed session length (remembered) and start it, or just read freely.
@@ -259,7 +284,7 @@ function briefEl(items, opened, positive) {
       h('h2', { class: 'brief-title', id: 'brief-title', text: 'Today’s brief' }),
       h('p', { class: 'meta', text: today })),
     h('ol', { class: 'brief-list' }, items.map((i) => h('li', { class: opened[i.id] ? 'is-read' : '' },
-      h('a', { class: 'brief-link', href: '#/item/' + encodeURIComponent(i.id) },
+      h('a', { class: 'brief-link', href: '#/item/' + encodeURIComponent(i.id), 'data-post': i.id },
         h('span', { class: 'brief-item', text: i.title }),
         h('span', { class: 'meta', text: [positive.has(i.sourceId) ? 'Good news' : null, i.sourceName, opened[i.id] ? 'Opened' : null].filter(Boolean).join(' · ') }))))));
 }

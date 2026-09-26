@@ -1,11 +1,12 @@
 import * as db from '../db.js';
 import { relTime, newListEntry, articleIds, libkeyUrl } from '../logic.js';
 import { loadFullText } from '../fulltext.js';
-import { h, icon, toast, fmtDate, sharePost, openSheet, REACTIONS, reactionIcon, avatarEl } from '../ui.js';
+import { h, icon, toast, fmtDate, sharePost, REACTIONS, reactionIcon, avatarEl } from '../ui.js';
 import { sanitize } from '../sanitize.js';
 import { attachSaveQuote } from '../selection.js';
 import { readControls } from '../readtools.js';
-import { getPost, ensurePost, savePost, markOpened, folders, addFolder } from '../posts.js';
+import { getPost, ensurePost, savePost, markOpened } from '../posts.js';
+import { bookmarkSheet } from '../bookmark.js';
 
 export async function render(main, app, id) {
   const cache = await db.get('kv', 'feed');
@@ -61,51 +62,8 @@ export async function render(main, app, id) {
     toast('Bookmarked', { label: 'Add to folder', run: folderSheet });
   });
 
-  async function folderSheet() {
-    const list = await folders();
-    openSheet('Bookmark', (close) => {
-      const boxes = h('ul', { class: 'list' });
-      const paintBoxes = (fs) => boxes.replaceChildren(...fs.map((f) => {
-        const cb = h('input', { type: 'checkbox', id: 'fold-' + f.id, checked: post.bookmark?.folders.includes(f.id) });
-        cb.addEventListener('change', async () => {
-          if (!post.bookmark) post.bookmark = { at: Date.now(), folders: [] };
-          const set = new Set(post.bookmark.folders);
-          if (cb.checked) set.add(f.id); else set.delete(f.id);
-          post.bookmark.folders = [...set];
-          await save();
-          paintTools();
-        });
-        return h('li', {}, h('label', { class: 'check-row', for: 'fold-' + f.id }, cb, icon('folder', 20), h('span', { text: f.name })));
-      }));
-      paintBoxes(list);
-      const name = h('input', { class: 'input', id: 'new-folder', type: 'text', maxlength: '60', autocomplete: 'off', placeholder: 'New folder name' });
-      const form = h('form', { class: 'inline-field', onsubmit: async (e) => {
-        e.preventDefault();
-        if (!name.value.trim()) return;
-        const f = await addFolder(name.value);
-        list.push(f);
-        if (!post.bookmark) post.bookmark = { at: Date.now(), folders: [] };
-        post.bookmark.folders.push(f.id);
-        await save();
-        name.value = '';
-        paintBoxes(list);
-        paintTools();
-      } }, h('label', { class: 'visually-hidden', for: 'new-folder' }, 'New folder name'), name, h('button', { type: 'submit', class: 'btn btn-secondary' }, 'Add'));
-      return h('div', { class: 'sheet-body' },
-        list.length ? h('p', { class: 'hint', text: 'Folders' }) : h('p', { class: 'hint', text: 'No folders yet. It’s in All bookmarks; add a folder to sort it.' }),
-        boxes,
-        form,
-        h('div', { class: 'sheet-actions' },
-          h('button', { type: 'button', class: 'btn btn-text btn-danger', onclick: async () => {
-            post.bookmark = null;
-            await save();
-            paintTools();
-            close();
-            toast('Bookmark removed');
-          } }, 'Remove bookmark'),
-          h('button', { type: 'button', class: 'btn btn-primary', onclick: close }, 'Done')));
-    });
-  }
+  const folderSheet = () => bookmarkSheet(post, { onChange: paintTools });
+
 
   const bar = h('div', { class: 'article-bar' },
     backBtn,
@@ -154,6 +112,7 @@ export async function render(main, app, id) {
         loadArea.remove();
       } catch (e) {
         toast('Couldn’t load the full article');
+        if (browserUrl === item.url) openRow?.remove(); // "Open in browser" below does the same thing
         loadArea.replaceChildren(h('div', { class: 'fail-block', role: 'status' },
           h('p', { class: 'label', text: 'Couldn’t load the full article here. Open it in the browser?' }),
           h('p', { class: 'hint', text: e.message || '' }),
@@ -170,6 +129,8 @@ export async function render(main, app, id) {
     ? h('a', { class: hasFull || ids || item.videoId ? 'btn btn-secondary' : 'btn btn-primary', href: item.url, target: '_blank', rel: 'noopener noreferrer' },
       item.videoId ? 'Open on YouTube' : 'Open original', icon('external', 18))
     : null;
+
+  const openRow = open ? h('div', { class: 'article-actions' }, open) : null;
 
   // ---------- end of article ----------
   const listEnd = h('div', { class: 'end-block', hidden: true },
@@ -232,7 +193,7 @@ export async function render(main, app, id) {
       readArea,
       !hasFull && !ids && !item.videoId && item.url ? h('p', { class: 'meta', style: 'margin-top: var(--s-5)', text: 'The full text isn’t in the feed.' }) : null,
       ids && !post.fullHtml ? loadArea : null,
-      open ? h('div', { class: 'article-actions' }, open) : null,
+      openRow,
       listEnd,
       h('section', { class: 'end-block', 'aria-labelledby': 'react-title' },
         h('h2', { class: 'section-title', id: 'react-title', text: 'Your reaction' }), reactions),

@@ -177,11 +177,24 @@ takeaways.
     video/Short cards played in the app (`youtube:@handle` sources, resolved
     by the worker); Dallas Voice in Nearby. Worker now runs every 2 minutes.
 
+12. ✅ v0.6: long-press (touch) or right-click (mouse) on any post opens a
+    preview with actions: reading list, bookmark (folders), mark read/unread,
+    share, hide (hidden posts collapse to a line with Show); a movable jump
+    button (to the bottom, then back to top; drag it anywhere, it remembers);
+    the Reading list as its own feed tab, and Collections lists use the same
+    post cards. Review fixes: stray "null" text (Bookmarks, Settings) blocked
+    for good; avatar selection ring centered; Profile/Appearance spacing;
+    bookmark sheet hint; Library sources fold by topic and show problems;
+    no switch on sources without a feed; a duplicate "open" button on failed
+    full text; a tap after a long-press no longer gets swallowed.
+
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT
 Health & Wellness, Equality Arlington, UTA LGBTQ+ Program on events.uta.edu,
 1851 Club, Resource Center Dallas, Dallas Voice's weekly events). A weekly
 "This week near you" card needs calendar (iCal) support in the worker.
+Also planned with it: a **Calendar** button next to Recently opened (the clock)
+that opens one calendar showing every events calendar's events in one place.
 
 Next:
 - Connections between new items and saved quotes.

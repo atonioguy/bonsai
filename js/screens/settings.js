@@ -62,11 +62,11 @@ export async function render(main, app) {
       type: 'button', class: 'avatar-choice', 'aria-label': 'Avatar: ' + key,
       'aria-pressed': String(!profile.photo && (profile.avatar || 'bonsai') === key),
       onclick: () => saveProfile({ avatar: key, photo: null }),
-    }, avatarEl({ avatar: key }, 44))),
-    ...(profile.photo ? [h('button', { type: 'button', class: 'avatar-choice', 'aria-label': 'Avatar: your photo', 'aria-pressed': 'true' }, avatarEl(profile, 44))] : []));
+    }, avatarEl({ avatar: key }, 40))),
+    ...(profile.photo ? [h('button', { type: 'button', class: 'avatar-choice', 'aria-label': 'Avatar: your photo', 'aria-pressed': 'true' }, avatarEl(profile, 40))] : []));
   }
   paintAvatars();
-  const profileSec = h('section', { class: 'fieldset', 'aria-labelledby': 'set-profile' },
+  const profileSec = h('section', { class: 'fieldset section', 'aria-labelledby': 'set-profile' },
     h('h2', { class: 'section-title', id: 'set-profile', text: 'Profile' }),
     field('profile-name', 'Name', name, 'Shown on your notes. Stays on this device.'),
     h('div', { class: 'field' }, h('span', { class: 'label', text: 'Avatar' }), avatars,

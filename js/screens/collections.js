@@ -2,7 +2,9 @@ import * as db from '../db.js';
 import { relTime } from '../logic.js';
 import { h, icon, toast } from '../ui.js';
 import { sourceLine } from './feed.js';
-import { allPosts, savePost, folders, addFolder, renameFolder, deleteFolder } from '../posts.js';
+import { allPosts, savePost, folders, addFolder, renameFolder, deleteFolder, openedMap } from '../posts.js';
+import { entryEl } from '../entries.js';
+import { enablePostMenu } from '../postmenu.js';
 
 const SECTIONS = [['list', 'Reading list'], ['bookmarks', 'Bookmarks'], ['quotes', 'Quotes']];
 
@@ -20,17 +22,19 @@ export async function render(main, app, tab = 'list', id = null) {
 
 // ---------- reading list ----------
 async function renderList(main, app) {
-  const posts = (await allPosts()).filter((p) => p.list).sort((a, b) => b.list.addedAt - a.list.addedAt);
+  // Oldest first, like a queue: the same order as the Reading list tab in the feed.
+  const posts = (await allPosts()).filter((p) => p.list).sort((a, b) => a.list.addedAt - b.list.addedAt);
+  const opened = await openedMap();
   if (!posts.length) {
     main.append(h('div', { class: 'empty' },
       h('h2', { text: 'Reading list is empty' }),
       h('p', { class: 'lead', text: 'Tap the list icon at the top of an article to add it. It comes back in your feed until you finish it.' })));
     return;
   }
-  const ul = h('ul', { class: 'list post-list' });
+  const ul = h('div', { class: 'feed' });
   for (const p of posts) {
     const where = p.scroll > 0.02 ? Math.round(p.scroll * 100) + '% read' : 'Not started';
-    const li = postRow(p, [p.item.sourceName, where, 'added ' + relTime(p.list.addedAt)], 'Remove from reading list', async () => {
+    const li = postRow(p, [where], opened, 'Remove from reading list', async () => {
       const was = p.list;
       p.list = null;
       await savePost(p);
@@ -40,6 +44,7 @@ async function renderList(main, app) {
     ul.appendChild(li);
   }
   main.append(ul);
+  return postMenu(ul, posts, () => rerender(main, app, 'list'));
 }
 
 // ---------- bookmarks: folders overview ----------
@@ -63,7 +68,7 @@ async function renderBookmarks(main, app) {
       row('#/collections/folder/all', 'All bookmarks', marked.length),
       fs.map((f) => row('#/collections/folder/' + f.id, f.name, count(f.id)))),
     h('div', { style: 'margin-top: var(--s-5)' }, form),
-    marked.length ? null : h('p', { class: 'hint', style: 'margin-top: var(--s-4)', text: 'Tap the bookmark icon at the top of an article to keep it here.' }));
+    ...(marked.length ? [] : [h('p', { class: 'hint', style: 'margin-top: var(--s-4)', text: 'Tap the bookmark icon at the top of an article, or long-press a post, to keep it here.' })]));
 }
 
 // ---------- one folder ----------
@@ -100,9 +105,10 @@ async function renderFolder(main, app, id) {
     } }, 'Edit folder');
   }
 
-  const ul = h('ul', { class: 'list post-list' });
+  const opened = await openedMap();
+  const ul = h('div', { class: 'feed' });
   for (const p of items) {
-    const li = postRow(p, [p.item.sourceName, 'saved ' + relTime(p.bookmark.at)], inAll ? 'Remove bookmark' : 'Remove from ' + folder.name, async () => {
+    const li = postRow(p, [], opened, inAll ? 'Remove bookmark' : 'Remove from ' + folder.name, async () => {
       const was = p.bookmark;
       p.bookmark = inAll ? null : { ...was, folders: was.folders.filter((x) => x !== id) };
       await savePost(p);
@@ -111,16 +117,22 @@ async function renderFolder(main, app, id) {
     });
     ul.appendChild(li);
   }
-  main.append(head, title, edit,
+  main.append(head, title, ...(edit ? [edit] : []),
     items.length ? ul : h('p', { class: 'lead', style: 'margin-top: var(--s-5)', text: inAll ? 'No bookmarks yet.' : 'Nothing in this folder yet.' }));
+  return postMenu(ul, items, () => rerender(main, app, 'folder', id));
 }
 
-function postRow(p, metaParts, removeLabel, onRemove) {
-  return h('li', { class: 'row post-row' },
-    h('a', { class: 'row-main', href: '#/item/' + encodeURIComponent(p.id) },
-      h('span', { class: 'row-title', text: p.item.title }),
-      h('span', { class: 'meta', text: metaParts.filter(Boolean).join(' · ') })),
-    h('button', { type: 'button', class: 'btn-icon', 'aria-label': removeLabel + ': ' + p.item.title, onclick: onRemove }, icon('close', 20)));
+// Collections list posts the same way the feed does, with one quiet remove button.
+function postRow(p, extra, opened, removeLabel, onRemove) {
+  return entryEl(p.item, {
+    openedAt: opened[p.id], extra,
+    action: h('button', { type: 'button', class: 'btn-icon', 'aria-label': removeLabel + ': ' + p.item.title, onclick: onRemove }, icon('close', 20)),
+  });
+}
+
+// Long-press / right-click on these posts too; any change redraws the list.
+function postMenu(root, posts, redraw) {
+  return enablePostMenu(root, (id) => posts.find((p) => p.id === id)?.item || null, () => redraw());
 }
 
 function rerender(main, app, tab, id) { main.replaceChildren(); return render(main, app, tab, id); }

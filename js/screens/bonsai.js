@@ -30,7 +30,7 @@ export async function render(main, app) {
   const line = (label, t) => h('p', { class: 'lead' },
     h('span', { class: 'label', text: label + ' ' }),
     `${t.minutes} min read · ${t.sessions} ${t.sessions === 1 ? 'session' : 'sessions'} · ${t.finished} ${t.finished === 1 ? 'article' : 'articles'} finished`);
-  const topicLine = topics.map((t) => `${t.name} ${gr.byTopic[t.id] || 0}`).join(' · ');
+  const topicLine = topics.filter((t) => gr.byTopic[t.id]).map((t) => `${t.name} ${gr.byTopic[t.id]}`).join(' · ');
 
   main.append(
     h('h1', { class: 'screen-title', text: 'Bonsai' }),
@@ -47,7 +47,7 @@ export async function render(main, app) {
     h('section', { class: 'section stats' },
       line('This week:', week),
       line('All time:', ever),
-      h('p', { class: 'meta', text: 'Points by topic: ' + topicLine })),
+      topicLine ? h('p', { class: 'meta', text: 'Points by topic: ' + topicLine }) : null),
   );
 }
 

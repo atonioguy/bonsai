@@ -29,6 +29,8 @@ setup steps plainly.
 | `js/prefs.js` | Theme + reading text size (localStorage, applied before paint by `index.html`) |
 | `js/fulltext.js` | Europe PMC lookup + JATS → HTML for "Load full article" |
 | `js/readtools.js`, `js/recent.js` | The Aa popover; the Recently opened drawer |
+| `js/entries.js`, `js/postmenu.js`, `js/bookmark.js` | Post cards (feed, reading list, folders); long-press/right-click preview + actions; the bookmark folder sheet |
+| `js/jump.js` | The movable jump-to-bottom / back-to-top button |
 | `worker/` | `bonsai-feeds` Cloudflare Worker. Edit `worker.js`/`parse.js`, then `node worker/build.mjs` regenerates `bonsai-feeds.js`, the single file the owner pastes into the Cloudflare dashboard |
 | `sources.json` | Topics, sources (feed URLs) and suggested free books. Read by both the app and the worker |
 | `test/` | `node --test test/*.test.mjs` (unit), `node test/ui.mjs` (browser run + screenshots) |
@@ -53,7 +55,9 @@ node --test test/*.test.mjs     # parser + logic
 node test/ui.mjs                # full app in Chromium, 375 and 1280 wide → test/shots/
 ```
 
-Then look at the screenshots (DESIGN.md §10).
+Then look at the screenshots (DESIGN.md §10). `REVIEW=1 node test/ui.mjs` takes
+full-page screenshots for a layout review. Every screenshot is also checked for
+horizontal overflow and stray "null"/"undefined"/"NaN" text.
 
 ## Shipping a change
 
@@ -66,7 +70,7 @@ Then look at the screenshots (DESIGN.md §10).
   `worker/bonsai-feeds.js` in the Cloudflare dashboard (Edit code → Deploy). That's
   how they deploy; they don't use a terminal. `sources.json` edits need no redeploy.
 - The free Workers plan allows ~10 ms of CPU per run. That's why the worker
-  refreshes one source per 5-minute cron run and `/feed` stitches stored text
+  refreshes one source per 2-minute cron run and `/feed` stitches stored text
   instead of parsing it. Keep it that way.
 
 ## Related repo

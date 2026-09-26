@@ -119,3 +119,24 @@ export async function allPosts() {
 export function saveScroll(item, ratio) {
   return update(item, (p) => { p.scroll = ratio; });
 }
+
+// ---------- read / unread by hand ----------
+export async function markUnread(id) {
+  const map = await openedMap();
+  delete map[id];
+  await db.put('kv', 'opened', map);
+  const p = await getPost(id);
+  if (p) { p.openedAt = 0; await savePost(p); }
+}
+
+// ---------- hidden posts (collapsed to one line in the feed, can be shown again) ----------
+export async function hiddenMap() {
+  return (await db.get('kv', 'hidden')) || {};
+}
+
+export async function setHidden(id, on) {
+  const map = await hiddenMap();
+  if (on) map[id] = Date.now(); else delete map[id];
+  await db.put('kv', 'hidden', map);
+  return map;
+}

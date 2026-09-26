@@ -143,7 +143,9 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
     await page.waitForTimeout(250);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     check(overflow <= 0, `${name}@${w}: horizontal overflow ${overflow}px`);
-    await page.screenshot({ path: join(SHOTS, `${name}-${w}.png`), fullPage: false });
+    const stray = await page.evaluate(() => (document.body.innerText.match(/\b(null|undefined|NaN)\b/) || [])[0]);
+    check(!stray, `${name}@${w}: stray "${stray}" on screen`);
+    await page.screenshot({ path: join(SHOTS, `${name}-${w}.png`), fullPage: Boolean(process.env.REVIEW) });
   };
   const dbCall = (fn, ...args) => page.evaluate(async ([fn, args]) => { const db = await import('/js/db.js'); return db[fn](...args); }, [fn, args]);
 
@@ -200,6 +202,55 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await shot('06h-video');
   await page.goto(BASE + '#/');
   await page.waitForSelector('.brief');
+
+  // long-press / right-click menu: preview + actions
+  await page.click('.entry[data-id="gen1"]', { button: 'right' });
+  await page.waitForSelector('dialog.peek[open]');
+  check((await page.textContent('dialog.peek .peek-title')).startsWith('Sample article 2'), 'preview shows the post');
+  await shot('04b-peek');
+  await page.click('dialog.peek button:has-text("Add to reading list")');
+  await page.waitForFunction(async () => { const db = await import('/js/db.js'); return Boolean((await db.get('posts', 'gen1'))?.list); });
+  await page.click('.entry[data-id="gen1"]', { button: 'right' });
+  await page.click('dialog.peek button:has-text("Hide post")');
+  await page.waitForSelector('.entry-hidden[data-id="gen1"]');
+  await shot('04c-hidden');
+  await page.click('.entry-hidden[data-id="gen1"] button:has-text("Show")');
+  await page.waitForSelector('.entry[data-id="gen1"]');
+  // touch: hold still for half a second
+  await page.evaluate(() => {
+    const el = document.querySelector('.entry[data-id="gen2"] .entry-title');
+    const r = el.getBoundingClientRect();
+    el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch', clientX: r.x + 10, clientY: r.y + 10 }));
+  });
+  await page.waitForSelector('dialog.peek[open]', { timeout: 2000 });
+  await page.click('dialog.peek button:has-text("Mark as read")');
+  await page.waitForSelector('.entry.is-read[data-id="gen2"]');
+  await page.click('.entry[data-id="gen2"]', { button: 'right' });
+  await page.click('dialog.peek button:has-text("Mark as unread")');
+  await page.waitForSelector('.entry[data-id="gen2"]:not(.is-read)');
+
+  // the Reading list as a feed of its own
+  await page.click('.tab[data-topic="_list"]');
+  await page.waitForSelector('.entry[data-id="gen1"]');
+  check((await page.textContent('.entry[data-id="gen1"] .meta')).includes('Not started'), 'reading list tab shows progress');
+  await page.click('.tab[data-topic="all"]');
+
+  // jump button: to the bottom, then back to top; drag it to the other side
+  await page.waitForSelector('.jump:not([hidden])');
+  await page.click('.jump');
+  await page.waitForFunction(() => scrollY + innerHeight >= document.documentElement.scrollHeight - 5);
+  await page.waitForSelector('.jump[aria-label="Back to top"]');
+  await page.click('.jump');
+  await page.waitForFunction(() => scrollY < 5);
+  const jb = await page.$eval('.jump', (b) => { const r = b.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  await page.mouse.move(jb.x, jb.y);
+  await page.mouse.down();
+  await page.mouse.move(40, jb.y - 120, { steps: 6 });
+  await page.mouse.up();
+  check((await page.evaluate(() => JSON.parse(localStorage.getItem('bonsai-jump')).side)) === 'left', 'jump button moves and remembers');
+  await page.waitForTimeout(300);
+  await shot('04d-jump-moved');
+  check((await page.evaluate(() => scrollY)) < 5, 'dragging the jump button does not jump');
   await page.evaluate(() => window.scrollTo(0, 900));
   await shot('05-feed-scrolled');
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -322,14 +373,14 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.goto(BASE + '#/');
   await page.waitForSelector('.listed');
   await page.goto(BASE + '#/collections/list');
-  await page.waitForSelector('.post-row');
+  await page.waitForSelector('.feed .entry');
   await shot('10b-reading-list');
   await page.goto(BASE + '#/collections/bookmarks');
   await page.waitForSelector('.folder-row:has-text("Psych reads")');
   check((await page.textContent('.folder-row:has-text("Psych reads") .meta')) === '1', 'folder count');
   await shot('10c-bookmarks');
   await page.click('.folder-row:has-text("Psych reads")');
-  await page.waitForSelector('.post-row');
+  await page.waitForSelector('.feed .entry');
   await shot('10d-folder');
   await page.goto(BASE + '#/item/gen0');
   await page.click('button:has-text("Done, remove it")');

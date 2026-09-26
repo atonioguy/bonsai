@@ -73,23 +73,28 @@ export async function render(main, app) {
 
   // ---------- sources ----------
   const muted = new Set(s.muted);
+  // One folding group per topic; the summary says how many sources and whether any need attention.
   const groups = app.config.topics.map((t) => {
-    const rows = app.config.sources.filter((x) => x.topic === t.id).map((src) => {
+    let problems = 0;
+    const srcs = app.config.sources.filter((x) => x.topic === t.id);
+    const rows = srcs.map((src) => {
       const st = status.get(src.id);
       const note = !src.feed ? 'No feed link yet' : !feed ? '' : !st ? 'Not loaded yet' : !st.ok ? 'Not loading' + (st.error ? ' (' + st.error + ')' : '') : '';
-      const sw = h('input', { type: 'checkbox', role: 'switch', class: 'switch', id: 'src-' + src.id, checked: !muted.has(src.id), disabled: !src.feed });
+      if (note.startsWith('Not loading')) problems++;
+      const label = h('label', { class: 'row-main', for: 'src-' + src.id },
+        h('span', { text: src.name }),
+        note ? h('span', { class: 'meta' + (note.startsWith('Not loading') ? ' warn' : ''), text: note }) : null);
+      if (!src.feed) return h('li', { class: 'row' }, h('div', { class: 'row-main' }, ...label.childNodes)); // nothing to switch yet
+      const sw = h('input', { type: 'checkbox', role: 'switch', class: 'switch', id: 'src-' + src.id, checked: !muted.has(src.id) });
       sw.addEventListener('change', async () => {
         if (sw.checked) muted.delete(src.id); else muted.add(src.id);
         app.settings = await db.saveSettings({ muted: [...muted] });
       });
-      return h('li', { class: 'row' },
-        h('label', { class: 'row-main', for: 'src-' + src.id },
-          h('span', { text: src.name }),
-          note ? h('span', { class: 'meta' + (note.startsWith('Not loading') ? ' warn' : ''), text: note }) : null),
-        sw);
+      return h('li', { class: 'row' }, label, sw);
     });
-    return h('div', { class: 'topic-group' },
-      h('h3', { class: 'meta', style: 'font-weight: 700', text: t.name }),
+    const summary = [srcs.length + (srcs.length === 1 ? ' source' : ' sources'), problems ? problems + ' not loading' : null].filter(Boolean).join(' · ');
+    return h('details', { class: 'topic-group', open: problems > 0 },
+      h('summary', {}, h('span', { class: 'label', text: t.name }), h('span', { class: 'meta' + (problems ? ' warn' : ''), text: summary })),
       h('ul', { class: 'list' }, rows));
   });
 

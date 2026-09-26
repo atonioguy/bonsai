@@ -4,8 +4,9 @@ import { h, icon, treeMark } from './ui.js';
 import { retryPending } from './sidequest.js';
 import { applyTheme, applyText } from './prefs.js';
 import { openRecent } from './recent.js';
+import { initJump, jumpRefresh } from './jump.js';
 
-export const VERSION = '0.5.0';
+export const VERSION = '0.6.0';
 
 const SCREENS = {
   feed: () => import('./screens/feed.js'),
@@ -87,6 +88,11 @@ async function doRoute() {
   // Build the next screen off the page while the current one stays visible, then swap it in
   // in one step with its scroll position already set: no blank frame, no jump to the top and back.
   const screen = h('div', { class: 'screen' });
+  // Screens build with append(a, cond ? b : null); skip empty slots instead of printing "null".
+  for (const m of ['append', 'replaceChildren']) {
+    const native = screen[m].bind(screen);
+    screen[m] = (...kids) => native(...kids.flat().filter((k) => k != null && k !== false));
+  }
   app.onShown = null;
   cleanup = (await mod.render(screen, app, ...params)) || null;
   document.body.dataset.route = name;
@@ -108,6 +114,7 @@ async function doRoute() {
       { duration: dir === 'fade' ? 160 : 240, easing: 'cubic-bezier(.2,.7,.2,1)' });
   }
   first = false;
+  jumpRefresh();
 }
 
 async function boot() {
@@ -130,6 +137,7 @@ async function boot() {
     if (r.ok) app.config = await r.json();
   } catch { /* offline: sources list stays empty until next load */ }
 
+  initJump();
   window.addEventListener('hashchange', route);
   await route();
 
