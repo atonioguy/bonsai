@@ -123,7 +123,7 @@ export async function render(main, app, id) {
   const readArea = h('div', {}, text);
 
   // ---------- full text (research papers): load it here, or open it in the browser ----------
-  const ids = hasFull ? null : articleIds(item);
+  const ids = articleIds(item); // PubMed/journal items: offer full text even with a long abstract
   const fullWrap = h('div', { class: 'fulltext' });
   const showFull = (html) => {
     const prose = h('div', { class: 'prose' });

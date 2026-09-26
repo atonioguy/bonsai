@@ -5,7 +5,7 @@ import { retryPending } from './sidequest.js';
 import { applyTheme, applyText } from './prefs.js';
 import { openRecent } from './recent.js';
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.4.1';
 
 const SCREENS = {
   feed: () => import('./screens/feed.js'),
@@ -79,39 +79,35 @@ async function doRoute() {
   }
   if (cleanup) { try { await cleanup(); } catch (e) { console.warn(e); } cleanup = null; }
 
+  const mod = await SCREENS[name]();
+  const nextDepth = depthOf(name, params);
+  const dir = nextDepth > depth ? 'forward' : nextDepth < depth ? 'back' : 'fade';
+  depth = nextDepth;
+
+  // Build the next screen off the page while the current one stays visible, then swap it in
+  // in one step with its scroll position already set: no blank frame, no jump to the top and back.
+  const screen = h('div', { class: 'screen' });
+  app.onShown = null;
+  cleanup = (await mod.render(screen, app, ...params)) || null;
   document.body.dataset.route = name;
   for (const a of document.querySelectorAll('.nav a')) {
     if (a.dataset.screen === name) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   }
-
-  const mod = await SCREENS[name]();
-  const nextDepth = depthOf(name, params);
-  const dir = nextDepth > depth ? 'forward' : nextDepth < depth ? 'back' : 'fade';
-  depth = nextDepth;
-  const swap = async () => {
-    main.replaceChildren();
-    window.scrollTo(0, 0);
-    cleanup = (await mod.render(main, app, ...params)) || null;
-  };
-
-  // Screen changes slide (deeper = from the right, back = from the left) or cross-fade between
-  // tabs. View Transitions where supported, a short fade-in otherwise; none with reduced motion.
-  if (first || reducedMotion.matches) {
-    await swap();
-  } else if (document.startViewTransition) {
-    document.documentElement.dataset.nav = dir;
-    await document.startViewTransition(swap).updateCallbackDone.catch(() => {});
-  } else {
-    await swap();
-    const x = dir === 'forward' ? 24 : dir === 'back' ? -24 : 0;
-    main.animate([{ opacity: 0, transform: `translateX(${x}px)` }, { opacity: 1, transform: 'none' }], { duration: 250, easing: 'cubic-bezier(.2,.7,.2,1)' });
-  }
-  if (!first) main.focus({ preventScroll: true });
-  first = false;
+  main.replaceChildren(screen);
+  if (!first) main.focus({ preventScroll: true }); // focus first: some browsers scroll on focus
+  window.scrollTo(0, 0);
   const shown = app.onShown;
   app.onShown = null;
-  if (shown) requestAnimationFrame(() => shown());
+  if (shown) shown(); // e.g. back to your place in an article, before the first paint
+
+  // A short slide (deeper from the right, back from the left) or fade between tabs.
+  if (!first && !reducedMotion.matches) {
+    const x = dir === 'forward' ? 20 : dir === 'back' ? -20 : 0;
+    screen.animate([{ opacity: 0, transform: `translateX(${x}px)` }, { opacity: 1, transform: 'none' }],
+      { duration: dir === 'fade' ? 160 : 240, easing: 'cubic-bezier(.2,.7,.2,1)' });
+  }
+  first = false;
 }
 
 async function boot() {

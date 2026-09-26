@@ -41,7 +41,7 @@ for (let i = 0; i < 9; i++) {
 for (const [id, pmid] of [['pm-open', '39797602'], ['pm-closed', '41000322']]) {
   items.push({ id, sourceId: 'pubmed-alert-adult-adhd', sourceName: 'PubMed alert: adult ADHD', topic: 'mind', kind: 'research',
     title: 'Sample study ' + pmid, url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/?utm_source=Other`, published: iso(90),
-    excerpt: 'Sample abstract.', html: '<p>Background: sample abstract text.</p>', audioUrl: '', image: '' });
+    excerpt: 'Sample abstract.', html: '<p>' + 'Background: a long sample abstract, as PubMed sends. '.repeat(20) + '</p>', audioUrl: '', image: '' });
 }
 const JATS = `<?xml version="1.0"?><article xmlns:xlink="http://www.w3.org/1999/xlink"><front/><body>
   <sec><title>Introduction</title><p>${'Sample full-text sentence with <italic>emphasis</italic> and a citation<xref ref-type="bibr" rid="r1">1</xref>. '.repeat(8)}</p></sec>
@@ -154,6 +154,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.fill('#sq-url', 'https://sq.test');
   await page.fill('#sq-key', 'k');
   await shot('02-settings');
+  check(!(await page.textContent('main')).includes('null'), 'no stray "null" in Settings');
   await page.click('button[type=submit]');
   await page.waitForTimeout(200);
   const saved = await dbCall('settings');

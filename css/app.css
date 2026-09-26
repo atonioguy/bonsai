@@ -423,21 +423,6 @@ dialog::backdrop { background: rgba(0, 0, 0, .35); }
 
 .topbar-end { display: flex; align-items: center; gap: var(--s-2); }
 
-/* ---------- screen transitions (View Transitions API; app.js sets data-nav) ---------- */
-.topbar { view-transition-name: topbar; }
-.nav { view-transition-name: nav; }
-main { view-transition-name: page; }
-::view-transition-old(page), ::view-transition-new(page) {
-  animation-duration: var(--dur-3); animation-timing-function: var(--ease);
-}
-html[data-nav="forward"]::view-transition-old(page) { animation-name: vt-out-left; }
-html[data-nav="forward"]::view-transition-new(page) { animation-name: vt-in-right; }
-html[data-nav="back"]::view-transition-old(page) { animation-name: vt-out-right; }
-html[data-nav="back"]::view-transition-new(page) { animation-name: vt-in-left; }
-@keyframes vt-in-right { from { opacity: 0; transform: translateX(32px); } }
-@keyframes vt-in-left { from { opacity: 0; transform: translateX(-32px); } }
-@keyframes vt-out-left { to { opacity: 0; transform: translateX(-32px); } }
-@keyframes vt-out-right { to { opacity: 0; transform: translateX(32px); } }
 
 /* ---------- bonsai (growth) ---------- */
 .bonsai { display: block; width: 100%; max-width: 440px; max-height: 50vh; height: auto; margin: 0 auto; }

@@ -56,7 +56,7 @@ export async function render(main, app) {
       'aria-pressed': String(!profile.photo && (profile.avatar || 'bonsai') === key),
       onclick: () => saveProfile({ avatar: key, photo: null }),
     }, avatarEl({ avatar: key }, 44))),
-    profile.photo ? h('button', { type: 'button', class: 'avatar-choice', 'aria-label': 'Avatar: your photo', 'aria-pressed': 'true' }, avatarEl(profile, 44)) : null);
+    ...(profile.photo ? [h('button', { type: 'button', class: 'avatar-choice', 'aria-label': 'Avatar: your photo', 'aria-pressed': 'true' }, avatarEl(profile, 44))] : []));
   }
   paintAvatars();
   const profileSec = h('section', { class: 'fieldset', 'aria-labelledby': 'set-profile' },
