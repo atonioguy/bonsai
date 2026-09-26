@@ -7,7 +7,7 @@ import { attachSaveQuote } from '../selection.js';
 import { readControls } from '../readtools.js';
 import { getPost, ensurePost, savePost, markOpened } from '../posts.js';
 import { bookmarkSheet } from '../bookmark.js';
-import { tagsEl } from '../entries.js';
+import { tagsEl, savedMarks } from '../entries.js';
 import { loadLengths, lengthOf, requestLengths } from '../lengths.js';
 
 export async function render(main, app, id) {
@@ -47,6 +47,7 @@ export async function render(main, app, id) {
     markBtn.setAttribute('aria-label', post.bookmark ? 'Bookmarked, choose folders' : 'Bookmark');
     markBtn.setAttribute('aria-pressed', String(Boolean(post.bookmark)));
     listEnd.hidden = !post.list;
+    paintMeta();
   };
 
   listBtn.addEventListener('click', async () => {
@@ -80,7 +81,9 @@ export async function render(main, app, id) {
   // ---------- meta line (a video's length may arrive a moment later) ----------
   await loadLengths();
   const metaLine = h('p', { class: 'meta' });
-  const paintMeta = () => { metaLine.textContent = [item.sourceName, fmtDate(item.published) || relTime(item.published), formatLength(lengthOf(item))].filter(Boolean).join(' · '); };
+  const paintMeta = () => metaLine.replaceChildren(
+    [item.sourceName, fmtDate(item.published) || relTime(item.published), formatLength(lengthOf(item))].filter(Boolean).join(' · '),
+    savedMarks({ list: Boolean(post.list), bookmark: Boolean(post.bookmark) }) || '');
   paintMeta();
   requestLengths([item], app.settings.feedUrl, paintMeta);
 

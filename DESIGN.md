@@ -91,7 +91,9 @@ engagement numbers, and no metadata rows.
     Podcast. The same article from two feeds is one post with both feeds' tags.
   - **Refresh**: new posts come in only when you ask. Pull down at the top for
     a new order (new posts first), or tap Refresh at the end to add them below.
-    Otherwise the feed keeps its order and your place.
+    Otherwise the feed keeps its order and your place. Each topic tab keeps
+    its own order and place (a pull refreshes only the tab you're on); read,
+    hidden and saved state is shared by all tabs.
   - **Hidden post**: a post you hid, collapsed to one line with **Show**.
   - The **Reading list** tab in the feed is the reading list as its own feed.
   - **Source**: a journal, newsletter, podcast or site.
@@ -232,6 +234,9 @@ decide, or act. Otherwise cut it.
     movable jump button (round is fine: it's a genuinely round control), the
     pull-to-refresh arrow (round, only while pulling), and the Short player
     over a Short in the feed with its round sound button.
+  - The feed's topic row sticks under the top bar (a `--line` hairline once
+    scrolled). Like Safari's bar, it slides away while you scroll down and
+    comes back as soon as you scroll up.
   - Swipe actions: swiping a feed post left reveals two square buttons on its
     right edge, Reading list (glasses, `--accent`) and Hide (crossed-out eye,
     `--surface-warm`). They're icon-only because they repeat the long-press
@@ -244,6 +249,9 @@ decide, or act. Otherwise cut it.
   `--r-sm` corners, not buttons. An opened post shows the same row above its
   title. A video's length sits on its thumbnail's corner. Shorts are tall
   (9:16, at most 70% of the screen height) and centered in the column.
+  A saved post shows small `--accent` marks at the end of its meta line, in
+  the feed and above an opened post's title: glasses for the Reading list
+  (the same glyph as the swipe button) and a filled bookmark.
 
   Articles sit directly on the page. No cards inside cards.
 - **Empty space:** whitespace is intentional, so don't fill it with UI. If a
@@ -271,8 +279,8 @@ Don't default to any of these:
 - 3-card grids or oversized hero headers
 
 Use icons only when they read faster than text or have an established meaning.
-In Bonsai that's back, the bottom-nav icons (always paired with labels), delete
-and play.
+In Bonsai that's back, the bottom-nav icons (always paired with labels), delete,
+play, and the saved marks (with hidden text for screen readers).
 
 This is not a ban on cards, rounded corners, color, illustration, or
 decoration. It's a ban on using them without a reason. Don't overcorrect into

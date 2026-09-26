@@ -33,6 +33,16 @@ const timeEl = (seconds) => {
   return length ? h('span', { class: 'thumb-time', 'aria-label': 'Length ' + length, text: length }) : null;
 };
 
+// Saved: small marks on the meta line for the Reading list (glasses) and a bookmark.
+export function savedMarks({ list = false, bookmark = false } = {}) {
+  if (!list && !bookmark) return null;
+  const said = [list ? 'On your reading list' : null, bookmark ? 'Bookmarked' : null].filter(Boolean).join(', ');
+  return h('span', { class: 'saved-marks' },
+    list ? icon('glasses', 16) : null,
+    bookmark ? icon('bookmarked', 16) : null,
+    h('span', { class: 'visually-hidden', text: ' · ' + said }));
+}
+
 // A length that arrived after the post was drawn.
 export function showLength(root, videoId, seconds) {
   for (const t of root.querySelectorAll(`.thumb[data-video="${CSS.escape(videoId)}"]`)) {
@@ -42,14 +52,16 @@ export function showLength(root, videoId, seconds) {
 
 /**
  * @param {object} item  a feed item or a post snapshot
- * @param {{ openedAt?: number, extra?: string[], action?: HTMLElement }} opts
- *   extra: more meta (e.g. "40% read"); action: one quiet button on the meta line (e.g. remove)
+ * @param {{ openedAt?: number, extra?: string[], action?: HTMLElement, saved?: { list?: boolean, bookmark?: boolean } }} opts
+ *   extra: more meta (e.g. "40% read"); action: one quiet button on the meta line (e.g. remove);
+ *   saved: show the reading-list / bookmark marks
  */
-export function entryEl(item, { openedAt = 0, extra = [], action = null } = {}) {
-  const meta = [item.sourceName, relTime(item.published), ...extra, openedAt ? 'Opened' : null].filter(Boolean).join(' · ');
+export function entryEl(item, { openedAt = 0, extra = [], action = null, saved = null } = {}) {
+  const text = [item.sourceName, relTime(item.published), ...extra, openedAt ? 'Opened' : null].filter(Boolean).join(' · ');
+  const meta = h('p', { class: 'meta' }, text, savedMarks(saved || {}));
   return h('article', { class: 'entry' + (openedAt ? ' is-read' : ''), 'data-id': item.id, 'data-post': item.id, 'data-key': 'e:' + item.id },
     mediaEl(item),
-    action ? h('div', { class: 'entry-meta-row' }, h('p', { class: 'meta', text: meta }), action) : h('p', { class: 'meta', text: meta }),
+    action ? h('div', { class: 'entry-meta-row' }, meta, action) : meta,
     h('h2', { class: 'entry-title' }, h('a', { href: '#/item/' + encodeURIComponent(item.id) }, item.title)),
     item.excerpt && item.excerpt !== item.title ? h('p', { class: 'entry-excerpt', text: item.excerpt }) : null,
     tagsEl(item));

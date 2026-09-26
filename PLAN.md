@@ -210,6 +210,12 @@ takeaways.
     (it stays on until the app restarts); Settings → Autoplay Shorts, and
     with it off a tap plays one in place. v0.7.1: Shorts centered.
 
+16. ✅ v0.7.2: the topic row sticks under the top bar (slides away scrolling
+    down, back scrolling up, like Safari); each topic keeps its own place and
+    a pull refreshes only that topic, while read/hidden/saved state is shared;
+    saved posts show marks (glasses = Reading list, bookmark) on the meta
+    line in the feed and in the article.
+
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT
 Health & Wellness, Equality Arlington, UTA LGBTQ+ Program on events.uta.edu,

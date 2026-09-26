@@ -131,6 +131,14 @@ body[data-route="read"] main { max-width: none; padding: 0; }
   margin: 0 calc(-1 * var(--s-4)); padding: 0 var(--s-4);
   overflow-x: auto; scrollbar-width: none;
 }
+/* Feed topics: stuck under the top bar; they slide away while scrolling down, back on scrolling up. */
+.topic-tabs {
+  position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top)); z-index: 3;
+  background: var(--bg); border-bottom: 1px solid transparent;
+  transition: transform var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
+}
+.topic-tabs.is-stuck { border-bottom-color: var(--line); }
+.topic-tabs.is-away { transform: translateY(-100%); }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
   flex-shrink: 0;
@@ -179,6 +187,8 @@ a.tab { display: inline-flex; align-items: center; text-decoration: none; }
   font-size: var(--t-sm); line-height: var(--lh-sm); color: var(--text-2);
 }
 .entry .tags { margin-top: var(--s-1); }
+/* Saved: on the reading list (glasses) and/or bookmarked, at the end of the meta line. */
+.saved-marks { display: inline-flex; gap: var(--s-1); margin-left: var(--s-2); vertical-align: -3px; color: var(--accent); }
 
 .book-card {
   display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--s-4);

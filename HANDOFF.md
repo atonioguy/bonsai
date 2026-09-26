@@ -4,7 +4,7 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.7.1)
+## Live state (v0.7.2)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
@@ -31,6 +31,9 @@ the "Local (circle back)" / "Next" notes).
   the others are kept in `dupIds`.
 - Tags come from `postTags`: a source's `tags` in sources.json, else its topic
   name, then Article/Video/Short/Podcast.
+- Each topic tab has its own saved order and place (`feedView.tabs[topic]`).
+  A pull rebuilds only the current tab. Read/hidden/saved state comes from
+  the shared post records, so it's the same in every tab.
 - Video lengths: js/lengths.js asks the worker's `/length` for videos on
   screen, 2 at a time, and keeps the answers in IndexedDB `kv/lengths`. A
   miss is asked again after a day. `/length?v=ID&debug=1` shows what YouTube
@@ -40,7 +43,11 @@ the "Local (circle back)" / "Next" notes).
 
 ## Not yet confirmed on the owner's phone
 
-- Owner confirmed (v0.7.0): Shorts autoplay works. v0.7.1 centers them.
+- Owner confirmed: Shorts autoplay works (v0.7.0); video lengths work after
+  the worker re-paste (v0.7.1). The deployed worker matches the repo as of
+  v0.7.1 (v0.7.2 changed only the app).
+- v0.7.2: the sticky topic row (slides away scrolling down, back scrolling
+  up), each topic keeping its own place, and the saved marks on posts.
 - v0.7.0/0.7.1, the rest (the session couldn't reach YouTube, so the Short
   player and the length lookups were only tested with stand-ins):
   - the feed keeps your place when you open posts, switch screens or reopen

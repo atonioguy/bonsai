@@ -34,7 +34,7 @@ export async function render(main, app) {
   let saveTimer = null;
   const saveViews = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => db.put('kv', 'feedView', app.feedView), 500); };
 
-  const tabs = h('div', { class: 'tabs', role: 'group', 'aria-label': 'Topics' });
+  const tabs = h('div', { class: 'tabs topic-tabs', role: 'group', 'aria-label': 'Topics' });
   const list = h('div', { class: 'feed' });
   main.append(h('h1', { class: 'visually-hidden', text: 'Feed' }), tabs, list);
 
@@ -49,6 +49,8 @@ export async function render(main, app) {
         captureAnchor();
         app.topic = t.id;
         tabs.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-pressed', String(b === tab)));
+        const r = tab.getBoundingClientRect(), row = tabs.getBoundingClientRect(); // show all of it in the row
+        if (r.left < row.left || r.right > row.right) tabs.scrollBy({ left: r.left < row.left ? r.left - row.left - 16 : r.right - row.right + 16 });
         draw();
         restoreAnchor();
       },
@@ -76,6 +78,8 @@ export async function render(main, app) {
     for (const i of cache?.items || []) for (const id of [i.id, ...(i.dupIds || [])]) if (!byId.has(id)) byId.set(id, i);
   };
   index();
+  // Reading list and bookmark marks: one record per post, the same in every tab.
+  const savedOf = (i) => { const p = posts.find((x) => x.id === i.id); return p ? { list: Boolean(p.list), bookmark: Boolean(p.bookmark) } : null; };
   const openedAt = (i) => opened[i.id] || (i.dupIds || []).map((d) => opened[d]).find(Boolean) || 0;
 
   // First run with "new" tracking: everything already here counts as seen, so it doesn't open on "240 new".
@@ -140,7 +144,7 @@ export async function render(main, app) {
 
   const itemEl = (it) => (hidden[it.id]
     ? hiddenEl(it, async () => { hidden = await setHidden(it.id, false); refresh(it.id); })
-    : entryEl(it, { openedAt: openedAt(it) }));
+    : entryEl(it, { openedAt: openedAt(it), saved: savedOf(it) }));
 
   // ---------- the feed as a list of card keys ----------
   const keyOf = (c) => (c.type === 'entry' ? 'e:' + c.data.id : c.type === 'book' ? 'book' : c.type === 'listed' ? 'l:' + c.data.id
@@ -198,7 +202,7 @@ export async function render(main, app) {
   function drawList() {
     const queued = posts.filter((p) => p.list).sort((a, b) => a.list.addedAt - b.list.addedAt);
     list.replaceChildren(...(queued.length
-      ? queued.map((p) => entryEl(p.item, { openedAt: opened[p.id], extra: [p.scroll > 0.02 ? Math.round(p.scroll * 100) + '% read' : 'Not started'] }))
+      ? queued.map((p) => entryEl(p.item, { openedAt: openedAt(p.item), saved: savedOf(p.item), extra: [p.scroll > 0.02 ? Math.round(p.scroll * 100) + '% read' : 'Not started'] }))
       : [h('div', { class: 'empty' },
         h('h2', { text: 'Reading list is empty' }),
         h('p', { class: 'lead', text: 'Long-press a post (or right-click) and choose Add to reading list.' }))]));
@@ -240,12 +244,31 @@ export async function render(main, app) {
     const a = views()[app.topic]?.anchor;
     const el = a && list.querySelector(`[data-key="${CSS.escape(a.key)}"]`);
     window.scrollTo(0, el ? el.getBoundingClientRect().top + window.scrollY - a.off : 0);
+    showTabs(); // a jump isn't a scroll down: keep the topics in view
   }
   let anchorTimer = null;
   const onScroll = () => {
+    moveTabs();
     if (anchorTimer) return;
     anchorTimer = setTimeout(() => { anchorTimer = null; captureAnchor(); saveViews(); }, 200);
   };
+
+  // ---------- the topics stay reachable ----------
+  // Like Safari's bar: they stick under the top bar, slide away while you scroll down and come
+  // back as soon as you scroll up.
+  let lastY = window.scrollY, calmUntil = 0;
+  function showTabs() {
+    tabs.classList.remove('is-away');
+    lastY = window.scrollY;
+    calmUntil = Date.now() + 400; // the scroll events from a jump don't count
+  }
+  function moveTabs() {
+    const y = window.scrollY;
+    tabs.classList.toggle('is-stuck', y > 8);
+    if (Date.now() < calmUntil || y < 80) { if (y < 80) tabs.classList.remove('is-away'); lastY = y; return; }
+    if (y > lastY + 12) { tabs.classList.add('is-away'); lastY = y; }
+    else if (y < lastY - 12) { tabs.classList.remove('is-away'); lastY = y; }
+  }
 
   // ---------- the end of the list: status and Refresh ----------
   // Posts the server has that this tab isn't showing yet (they come in when you refresh).
@@ -334,16 +357,18 @@ export async function render(main, app) {
     return !error;
   }
 
-  // Pull down at the top: a new order with what's new first, for every tab.
+  // Pull down at the top: a new order for this tab, with what's new first. Other tabs keep their
+  // own order and place until you refresh them.
   async function refreshTop() {
     const ok = await load(true);
     if (!ok && cache) { toast('Couldn’t refresh. ' + error); return; }
     await loadExtras();
     if (pendingSeen.length) await markSeen(pendingSeen.splice(0));
-    app.feedView.tabs = {};
+    if (app.topic !== '_list') views()[app.topic] = buildView(app.topic);
     saveViews();
     draw();
     window.scrollTo(0, 0);
+    showTabs();
   }
 
   // Refresh at the end: new posts join below, where you are.

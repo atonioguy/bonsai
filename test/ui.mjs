@@ -250,6 +250,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await shot('04b-peek');
   await page.click('dialog.peek button:has-text("Add to reading list")');
   await page.waitForFunction(async () => { const db = await import('/js/db.js'); return Boolean((await db.get('posts', 'gen1'))?.list); });
+  check(await page.waitForSelector('.entry[data-id="gen1"] .saved-marks', { timeout: 3000 }).catch(() => null), 'a post on the reading list shows it in the feed');
   await page.click('.entry[data-id="gen1"]', { button: 'right' });
   await page.click('dialog.peek button:has-text("Hide post")');
   await page.waitForSelector('.entry-hidden[data-id="gen1"]');
@@ -349,6 +350,54 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   check(!(await page.$('.book-card')), 'topic filter hides book card');
   await page.click('.tab:has-text("All")');
 
+  // the topics stick under the top bar: away while scrolling down, back when scrolling up
+  const tabsBox = () => page.evaluate(() => {
+    const t = document.querySelector('.topic-tabs').getBoundingClientRect();
+    return { top: Math.round(t.top), bottom: Math.round(t.bottom), bar: Math.round(document.querySelector('.topbar').getBoundingClientRect().bottom), away: document.querySelector('.topic-tabs').classList.contains('is-away') };
+  });
+  await page.mouse.move(200, 400);
+  await page.waitForTimeout(500); // just after a tab tap, scrolling doesn't hide the topics yet
+  for (let i = 0; i < 6; i++) { await page.mouse.wheel(0, 250); await page.waitForTimeout(60); }
+  await page.waitForTimeout(300);
+  check((await tabsBox()).away, 'topics slide away while scrolling down');
+  await page.mouse.wheel(0, -60);
+  await page.waitForTimeout(400);
+  const tb = await tabsBox();
+  check(!tb.away && Math.abs(tb.top - tb.bar) < 2, `topics come back under the top bar when scrolling up (${JSON.stringify(tb)})`);
+  await shot('05d-topics-stuck');
+
+  // each topic keeps its own place; read/unread is the same everywhere
+  const placeOf = () => page.evaluate(() => {
+    const edge = document.querySelector('.topbar').getBoundingClientRect().bottom;
+    const el = [...document.querySelectorAll('.feed > [data-key]')].find((e) => e.getBoundingClientRect().bottom > edge + 1);
+    return el.dataset.key;
+  });
+  await page.evaluate(() => window.scrollTo(0, 1400));
+  await page.waitForTimeout(400);
+  const allPlace = await placeOf();
+  await page.click('.tab[data-topic="mind"]');
+  check((await page.evaluate(() => scrollY)) < 5, 'a topic seen for the first time starts at the top');
+  await page.click('.entry[data-id="gen2"]', { button: 'right' });
+  await page.click('dialog.peek button:has-text("Mark as read")');
+  await page.waitForSelector('.entry.is-read[data-id="gen2"]');
+  await page.evaluate(() => window.scrollTo(0, 700));
+  await page.waitForTimeout(400);
+  const mindPlace = await placeOf();
+  await page.click('.tab[data-topic="all"]');
+  check((await placeOf()) === allPlace, `All keeps its place (${allPlace})`);
+  check(await page.$('.entry.is-read[data-id="gen2"]'), 'read in Mind shows as read in All');
+  await page.click('.tab[data-topic="mind"]');
+  check((await placeOf()) === mindPlace, `Mind keeps its own place (${mindPlace})`);
+  await page.click('.entry[data-id="gen2"]', { button: 'right' });
+  await page.click('dialog.peek button:has-text("Mark as unread")');
+  await page.waitForSelector('.entry[data-id="gen2"]:not(.is-read)');
+  await page.evaluate(() => window.scrollTo(0, 600));
+  await page.waitForTimeout(400);
+  const mindLeft = await placeOf();
+  await page.click('.tab[data-topic="all"]');
+  check(await page.$('.entry[data-id="gen2"]:not(.is-read)'), 'unread again in All too');
+  await page.evaluate(() => window.scrollTo(0, 0));
+
   // 5. article
   await page.click('.entry-title a');
   await page.waitForSelector('.article-title');
@@ -389,6 +438,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.waitForSelector('dialog.sheet input[type=checkbox]:checked');
   await shot('06c-bookmark-sheet');
   await page.click('dialog.sheet button:has-text("Done")');
+  check((await page.$$('.article-head .saved-marks .icon')).length === 2, 'the article shows it’s on the reading list and bookmarked');
   await page.click('.reaction:has-text("Made me think")');
   check(await page.waitForSelector('.reaction[aria-pressed="true"]:has-text("Made me think")', { timeout: 3000 }).catch(() => null), 'reaction set');
   await page.fill('#note', 'Compare with the ADHD review.');
@@ -467,6 +517,9 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   });
   await page.waitForFunction((w) => document.querySelector('.entry-title')?.textContent === 'Pulled sample ' + w, w);
   check(await page.$('.earlier:has-text("Earlier")'), 'posts already seen go below "Earlier"');
+  await page.click('.tab[data-topic="mind"]');
+  check((await placeOf()) === mindLeft, 'a pull on All leaves Mind’s place alone');
+  await page.click('.tab[data-topic="all"]');
   await page.waitForTimeout(500);
   await shot('05c-pulled');
 
@@ -478,6 +531,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
     await db.put('posts', 'gen0', p);
   });
   await page.goto(BASE + '#/collections');
+  await page.waitForSelector('.saved-tabs');
   await dbCall('del', 'kv', 'feedView'); // it comes back with the next refresh (here: a restart without a saved order)
   await page.reload();
   await page.goto(BASE + '#/');
