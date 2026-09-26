@@ -1,6 +1,7 @@
 // Side Quest bridge: a finished reading session becomes a TickTick focus record through
 // Side Quest's own worker (aquamarine-data, POST /focus). Side Quest counts it like a pomodoro.
 import * as db from './db.js';
+import { shouldLog, finalizeStale } from './logic.js';
 
 export const isConnected = (s) => Boolean(s.sqUrl && s.sqKey);
 
@@ -16,9 +17,9 @@ export async function logSession(session, settings) {
       body: JSON.stringify({
         startTime: new Date(start).toISOString(),
         endTime: new Date(end).toISOString(),
-        type: 0,
+        type: session.mode === 'free' ? 1 : 0, // 1 = stopwatch (free read), 0 = pomodoro (timed)
         taskId: null,
-        note: 'Bonsai · ' + session.bookTitle,
+        note: 'Bonsai · ' + (session.mode === 'free' ? 'free read · ' : '') + session.bookTitle,
       }),
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -29,10 +30,15 @@ export async function logSession(session, settings) {
   }
 }
 
-// On launch, send any finished sessions that didn't get through.
+// On launch: close sessions left open when the app was swiped away, then send any
+// finished ones that didn't get through.
 export async function retryPending(app) {
+  const all = await db.all('sessions');
+  for (const x of all) {
+    const closed = finalizeStale(x);
+    if (closed) { await db.put('sessions', x.id, closed); Object.assign(x, closed); }
+  }
   const s = app.settings || (await db.settings());
   if (!isConnected(s)) return;
-  const pending = (await db.all('sessions')).filter((x) => x.complete && !x.synced);
-  for (const session of pending) await logSession(session, s);
+  for (const session of all.filter(shouldLog)) await logSession(session, s);
 }

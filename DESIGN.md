@@ -66,7 +66,9 @@ engagement numbers, and no metadata rows.
   - **Feed**: the main scroll.
   - **Library**: your books and sources.
   - **Saved**: saved quotes.
-  - **Session**: a timed reading session (default 15 min).
+  - **Session**: a timed reading session of 5, 15 or 25 min. It only counts if
+    you finish it.
+  - **Free read**: reading with no timer. All the active time counts.
   - **Throwback**: a saved quote shown again in the feed.
   - **Topic**: Mind, Trans health, Queer history, Tech & society, Tao.
   - **Source**: a journal, newsletter, podcast or site.

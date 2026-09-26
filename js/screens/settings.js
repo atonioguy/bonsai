@@ -9,8 +9,6 @@ export async function render(main, app) {
     h('label', { for: id }, label), input, hint ? h('p', { class: 'hint', id: id + '-hint', text: hint }) : null);
 
   const feedUrl = h('input', { class: 'input', id: 'feed-url', type: 'url', inputmode: 'url', autocomplete: 'off', spellcheck: 'false', value: s.feedUrl, placeholder: 'https://bonsai-feeds.you.workers.dev', 'aria-describedby': 'feed-url-hint' });
-  const minutes = h('select', { class: 'input', id: 'minutes' },
-    [10, 15, 20, 25, 30].map((m) => h('option', { value: m, selected: m === s.sessionMinutes }, m + ' min')));
   const sqUrl = h('input', { class: 'input', id: 'sq-url', type: 'url', inputmode: 'url', autocomplete: 'off', spellcheck: 'false', value: s.sqUrl, placeholder: 'https://aquamarine-data.you.workers.dev', 'aria-describedby': 'sq-url-hint' });
   const sqKey = h('input', { class: 'input', id: 'sq-key', type: 'password', autocomplete: 'off', value: s.sqKey });
 
@@ -18,7 +16,6 @@ export async function render(main, app) {
     e.preventDefault();
     app.settings = await db.saveSettings({
       feedUrl: feedUrl.value.trim().replace(/\/+$/, ''),
-      sessionMinutes: Number(minutes.value),
       sqUrl: sqUrl.value.trim().replace(/\/+$/, ''),
       sqKey: sqKey.value.trim(),
     });
@@ -27,9 +24,6 @@ export async function render(main, app) {
   h('section', { class: 'fieldset', 'aria-labelledby': 'set-feed' },
     h('h2', { class: 'section-title', id: 'set-feed', text: 'Feed' }),
     field('feed-url', 'Feed server URL', feedUrl, 'The address of your bonsai-feeds worker.')),
-  h('section', { class: 'fieldset', 'aria-labelledby': 'set-reading' },
-    h('h2', { class: 'section-title', id: 'set-reading', text: 'Reading' }),
-    field('minutes', 'Session length', minutes)),
   h('section', { class: 'fieldset', 'aria-labelledby': 'set-sq' },
     h('h2', { class: 'section-title', id: 'set-sq', text: 'Side Quest' }),
     field('sq-url', 'Worker URL', sqUrl, 'Side Quest’s aquamarine-data worker. Finished sessions are logged there as TickTick focus sessions.'),

@@ -29,6 +29,25 @@ export function afterShown(s, now = Date.now()) {
   return { ...s, stage, shownAt: now, dueAt: now + THROWBACK_DAYS[stage] * DAY };
 }
 
+// ---------- reading sessions ----------
+// Timed sessions are a challenge: only a finished one counts. A free read counts whatever
+// was read, and goes to Side Quest as a stopwatch record (Side Quest: 1 tomato per 25 min,
+// remainder carried; it ignores records under 5 min, so shorter free reads stay local).
+export const SESSION_CHOICES = [5, 15, 25];
+export const SQ_MIN_SEC = 5 * 60;
+export const STALE_OPEN = 3 * 60_000;   // an open session untouched this long was abandoned (app closed)
+
+export function shouldLog(s) {
+  return Boolean(s.complete) && !s.synced && (s.mode !== 'free' || s.activeSec >= SQ_MIN_SEC);
+}
+
+// Close a session left open when the app was swiped away. Returns the closed copy, or null.
+export function finalizeStale(s, now = Date.now()) {
+  const last = s.lastActive || s.start;
+  if (!s.open || now - last < STALE_OPEN) return null;
+  return { ...s, open: false, end: last, complete: s.mode === 'free' ? s.activeSec >= 60 : Boolean(s.complete) };
+}
+
 // ---------- feed mix ----------
 // The worker answers { sources: [{ id, meta, items }] }; the app works with flat items + status.
 export function normalizeFeed(data) {

@@ -3,7 +3,7 @@ import * as db from './db.js';
 import { h, icon, treeMark } from './ui.js';
 import { retryPending } from './sidequest.js';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 
 const SCREENS = {
   feed: () => import('./screens/feed.js'),
@@ -18,7 +18,7 @@ const ROUTES = [
   [/^#\/?$/, 'feed'],
   [/^#\/item\/([^/]+)$/, 'item'],
   [/^#\/library$/, 'library'],
-  [/^#\/read\/([^/]+)$/, 'read'],
+  [/^#\/read\/([^/]+)(?:\/(free|[0-9.]+))?$/, 'read'],
   [/^#\/saved$/, 'saved'],
   [/^#\/settings$/, 'settings'],
 ];
@@ -65,7 +65,7 @@ async function route() {
   let name = 'feed', params = [];
   for (const [re, n] of ROUTES) {
     const m = re.exec(hash);
-    if (m) { name = n; params = m.slice(1).map(decodeURIComponent); break; }
+    if (m) { name = n; params = m.slice(1).map((x) => (x == null ? x : decodeURIComponent(x))); break; }
   }
   if (cleanup) { try { await cleanup(); } catch (e) { console.warn(e); } cleanup = null; }
 

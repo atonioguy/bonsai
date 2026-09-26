@@ -1,5 +1,5 @@
 import * as db from '../db.js';
-import { mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed } from '../logic.js';
+import { mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, SESSION_CHOICES } from '../logic.js';
 import { h, enso } from '../ui.js';
 import { currentBook, percent } from '../books.js';
 
@@ -120,14 +120,33 @@ function entryEl(item) {
     item.excerpt && item.excerpt !== item.title ? h('p', { class: 'entry-excerpt', text: item.excerpt }) : null);
 }
 
+// Book card: pick a timed session length (remembered) and start it, or just read freely.
 function bookEl({ meta, f }, s) {
+  let minutes = SESSION_CHOICES.includes(s.sessionMinutes) ? s.sessionMinutes : 15;
+  const start = h('a', { class: 'btn btn-primary' });
+  const paint = () => {
+    start.textContent = 'Start ' + minutes + ' min';
+    start.href = '#/read/' + meta.id + '/' + minutes;
+    for (const b of lengths.children) b.setAttribute('aria-pressed', String(Number(b.dataset.min) === minutes));
+  };
+  const lengths = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Session length' },
+    SESSION_CHOICES.map((m) => h('button', { type: 'button', 'data-min': m, onclick: () => {
+      minutes = m;
+      paint();
+      db.saveSettings({ sessionMinutes: m }).then((next) => { s.sessionMinutes = next.sessionMinutes; });
+    } }, m + ' min')));
+  paint();
   return h('section', { class: 'book-card', 'aria-label': 'Continue reading' },
     enso(f, 48, { track: 'var(--beige)' }),
     h('div', {},
       h('p', { class: 'meta', text: 'Continue reading' }),
       h('h2', { class: 'book-title', text: meta.title }),
       h('p', { class: 'meta', text: percent(f) + ' read' + (meta.author ? ' · ' + meta.author : '') })),
-    h('a', { class: 'btn btn-primary', href: '#/read/' + meta.id }, 'Start ' + s.sessionMinutes + ' min session'));
+    h('div', { class: 'book-actions' },
+      lengths,
+      h('div', { class: 'book-buttons' },
+        start,
+        h('a', { class: 'btn btn-secondary', href: '#/read/' + meta.id + '/free' }, 'Free read'))));
 }
 
 export function throwbackEl(entry) {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   THROWBACK_DAYS, newSaved, dueThrowbacks, afterShown,
   mixFeed, composeFeed, relTime, weekStart, weekSummary, foliageScale,
+  shouldLog, finalizeStale, SQ_MIN_SEC, STALE_OPEN,
 } from '../js/logic.js';
 
 const DAY = 86_400_000;
@@ -73,4 +74,22 @@ test('weekSummary counts only this week', () => {
 test('foliageScale bounds', () => {
   assert.equal(foliageScale(0), 0.55);
   assert.equal(foliageScale(100), 1);
+});
+
+test('shouldLog: finished timed sessions; free reads of 5 min or more; never twice', () => {
+  assert.equal(shouldLog({ mode: 'timed', complete: true, activeSec: 300 }), true);
+  assert.equal(shouldLog({ mode: 'timed', complete: false, activeSec: 800 }), false);
+  assert.equal(shouldLog({ mode: 'free', complete: true, activeSec: SQ_MIN_SEC }), true);
+  assert.equal(shouldLog({ mode: 'free', complete: true, activeSec: SQ_MIN_SEC - 1 }), false);
+  assert.equal(shouldLog({ mode: 'free', complete: true, activeSec: 900, synced: true }), false);
+});
+
+test('finalizeStale closes abandoned sessions: free counts, unfinished timed does not', () => {
+  const base = { open: true, start: T0, lastActive: T0 + 600e3, activeSec: 600 };
+  assert.equal(finalizeStale({ ...base, mode: 'free' }, T0 + 600e3 + STALE_OPEN - 1), null);
+  const f = finalizeStale({ ...base, mode: 'free' }, T0 + 600e3 + STALE_OPEN);
+  assert.deepEqual([f.open, f.complete, f.end], [false, true, T0 + 600e3]);
+  const t = finalizeStale({ ...base, mode: 'timed', minutes: 15 }, T0 + 3600e3);
+  assert.deepEqual([t.open, t.complete], [false, false]);
+  assert.equal(finalizeStale({ ...base, open: false, mode: 'free' }, T0 + 3600e3), null);
 });

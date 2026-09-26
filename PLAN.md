@@ -151,6 +151,14 @@ takeaways.
 6. ✅ Side Quest bridge: a finished session writes a TickTick focus record.
 7. ✅ Saved screen: the tree by topic and the weekly recap.
 8. ✅ Dark mode (v0.2): Settings → Appearance (Match phone / Light / Dark).
+9. ✅ Two ways to read (v0.3): the book card offers a **timed session** (5, 15
+   or 25 min, the choice is remembered; it only counts if finished and goes to
+   Side Quest as a pomodoro record) or a **free read** (counts all active time
+   and goes to Side Quest as a stopwatch record when you tap Done or leave).
+   Side Quest's rules: a pomodoro of ≥5 min = 1 tomato; stopwatch = 1 tomato
+   per 25 min with the remainder carried; anything under 5 min is ignored, so
+   free reads under 5 min stay local. A free read cut off by closing the app is
+   finished and sent the next time Bonsai opens.
 
 Next:
 - Connections between new items and saved quotes.

@@ -1,14 +1,18 @@
 import * as db from '../db.js';
-import { newSaved } from '../logic.js';
+import { newSaved, shouldLog, SQ_MIN_SEC } from '../logic.js';
 import { h, icon, enso, setEnso, svg, TREE_MARK } from '../ui.js';
 import { bookIndex, progress, saveProgress, fraction, percent } from '../books.js';
 import { attachSaveQuote } from '../selection.js';
 import { logSession, isConnected } from '../sidequest.js';
 
-const IDLE = 90_000;       // no input for this long pauses the session clock
-const MIN_PARTIAL = 60;    // shorter unfinished sessions aren't recorded
+const IDLE = 90_000;       // no input for this long pauses the clock
+const MIN_KEEP = 60;       // sessions shorter than this aren't recorded at all
 
-export async function render(main, app, bookId) {
+/**
+ * #/read/:bookId/free  — free read: counts all active time, logged when you leave or tap Done
+ * #/read/:bookId/15    — timed session (5, 15 or 25 min): counts only if you finish it
+ */
+export async function render(main, app, bookId, modeParam = 'free') {
   const [book, index] = await Promise.all([db.get('books', bookId), bookIndex()]);
   const meta = index.find((b) => b.id === bookId);
   if (!book || !meta) {
@@ -19,45 +23,61 @@ export async function render(main, app, bookId) {
   }
 
   const s = app.settings;
-  const target = s.sessionMinutes * 60;
+  const free = modeParam === 'free' || !(Number(modeParam) > 0);
+  const target = free ? 0 : Number(modeParam) * 60;
   let p = await progress(bookId);
   let detachQuote = null;
   let session = null;
 
-  // ---------- session clock ----------
+  // ---------- clock ----------
   let lastInput = Date.now();
   const touch = () => { lastInput = Date.now(); };
   const inputs = ['scroll', 'pointerdown', 'keydown', 'touchstart', 'wheel'];
   inputs.forEach((e) => window.addEventListener(e, touch, { passive: true }));
 
   function startSession() {
-    session = { id: 'r' + Date.now().toString(36), bookId, bookTitle: meta.title, start: Date.now(), activeSec: 0, complete: false, synced: false };
+    const now = Date.now();
+    session = {
+      id: 'r' + now.toString(36), bookId, bookTitle: meta.title,
+      mode: free ? 'free' : 'timed', minutes: free ? null : target / 60,
+      start: now, lastActive: now, activeSec: 0, open: true, complete: false, synced: false,
+    };
     touch();
   }
 
-  const ring = enso(0, 32);
+  // Kept in storage while reading, so a free read survives the app being swiped away
+  // (it's closed and logged on the next launch; see retryPending).
+  const persist = () => (session.activeSec >= MIN_KEEP ? db.put('sessions', session.id, session) : Promise.resolve());
+
+  const ring = free ? null : enso(0, 32);
   const timeText = h('span', { class: 'time' });
+  const doneBtn = free ? h('button', { type: 'button', class: 'btn btn-text', onclick: () => finish() }, 'Done') : null;
   const bar = h('header', { class: 'reader-bar' },
     h('a', { class: 'btn-icon', href: '#/', 'aria-label': 'Close book' }, icon('back')),
     h('span', { class: 'title', text: meta.title }),
     timeText,
-    ring);
+    ring || doneBtn);
 
   function paintClock() {
-    const left = Math.max(0, target - session.activeSec);
-    const label = Math.ceil(left / 60) + ' min left';
-    timeText.textContent = label;
-    setEnso(ring, session.activeSec / target);
+    if (free) {
+      timeText.textContent = Math.floor(session.activeSec / 60) + ' min';
+    } else {
+      timeText.textContent = Math.ceil(Math.max(0, target - session.activeSec) / 60) + ' min left';
+      setEnso(ring, session.activeSec / target);
+    }
   }
 
   const tick = setInterval(() => {
-    if (!session || session.complete) return;
+    if (!session || !session.open) return;
     if (document.visibilityState === 'visible' && Date.now() - lastInput < IDLE) {
       session.activeSec += 1;
-      if (session.activeSec % 15 === 0) paintClock();
-      if (session.activeSec >= target) finish();
+      session.lastActive = Date.now();
+      if (session.activeSec % 15 === 0) { paintClock(); persist(); }
+      if (!free && session.activeSec >= target) finish();
     }
   }, 1000);
+  const onHide = () => { if (session && session.open && document.visibilityState === 'hidden') persist(); };
+  document.addEventListener('visibilitychange', onHide);
 
   // ---------- text ----------
   const textWrap = h('div', { class: 'book-text' });
@@ -96,14 +116,24 @@ export async function render(main, app, bookId) {
     });
   }
 
+  // Close the session: a free read counts if it's at least a minute; a timed one only when finished.
+  async function close() {
+    session.open = false;
+    session.end = Date.now();
+    session.complete = free ? session.activeSec >= MIN_KEEP : session.activeSec >= target;
+    if (session.activeSec >= MIN_KEEP || session.complete) await db.put('sessions', session.id, session);
+  }
+
   // ---------- complete ----------
   async function finish() {
-    session.complete = true;
-    session.end = Date.now();
-    await db.put('sessions', session.id, session);
+    await close();
     const f = fraction(meta, p);
-    const status = h('p', { class: 'meta', role: 'status' }, isConnected(s) ? 'Logging to Side Quest…' : '');
+    const mins = Math.max(free ? 0 : 1, Math.round(session.activeSec / 60));
+    const status = h('p', { class: 'meta', role: 'status' });
+    const logIt = shouldLog(session) && isConnected(s);
     if (!isConnected(s)) status.append('Not connected to Side Quest. ', h('a', { href: '#/settings' }, 'Set up'));
+    else if (free && session.activeSec < SQ_MIN_SEC) status.textContent = 'Under 5 min, so it isn’t sent to Side Quest.';
+    else status.textContent = 'Logging to Side Quest…';
 
     const note = h('input', { class: 'input', id: 'takeaway', type: 'text', autocomplete: 'off', maxlength: '300' });
     const form = h('form', {
@@ -130,8 +160,8 @@ export async function render(main, app, bookId) {
     main.replaceChildren(h('section', { class: 'complete', 'aria-labelledby': 'done-title' },
       big,
       h('div', {},
-        h('h1', { id: 'done-title', text: 'Session complete' }),
-        h('p', { class: 'meta', text: `${Math.max(1, Math.round(session.activeSec / 60))} min · ${meta.title} · ${percent(f)} read` })),
+        h('h1', { id: 'done-title', text: !free ? 'Session complete' : session.activeSec < 60 ? 'Under 1 min read' : `${mins} min read` }),
+        h('p', { class: 'meta', text: `${free ? 'Free read' : mins + ' min'} · ${meta.title} · ${percent(f)} read` })),
       status,
       form,
       h('div', { class: 'actions' },
@@ -140,9 +170,11 @@ export async function render(main, app, bookId) {
     main.focus({ preventScroll: true });
     window.scrollTo(0, 0);
 
-    if (isConnected(s)) {
+    if (logIt) {
       const r = await logSession(session, s);
-      status.textContent = r === 'logged' ? 'Logged to Side Quest as a focus session.' : 'Couldn’t reach Side Quest. It will retry next time you open Bonsai.';
+      status.textContent = r === 'logged'
+        ? (free ? 'Logged to Side Quest as a stopwatch session.' : 'Logged to Side Quest as a focus session.')
+        : 'Couldn’t reach Side Quest. It will retry next time you open Bonsai.';
       status.className = 'meta ' + (r === 'logged' ? 'status-ok' : 'status-warn');
     }
   }
@@ -160,11 +192,13 @@ export async function render(main, app, bookId) {
     clearInterval(tick);
     clearTimeout(saveTimer);
     window.removeEventListener('scroll', onScroll);
+    document.removeEventListener('visibilitychange', onHide);
     inputs.forEach((e) => window.removeEventListener(e, touch));
     if (detachQuote) detachQuote();
-    if (session && !session.complete && session.activeSec >= MIN_PARTIAL) {
-      session.end = Date.now();
-      await db.put('sessions', session.id, session);
+    // Leaving mid-read: a free read still counts (and is sent); an unfinished timed one doesn't.
+    if (session && session.open) {
+      await close();
+      if (shouldLog(session) && isConnected(s)) logSession(session, s);
     }
   };
 }

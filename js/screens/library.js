@@ -40,7 +40,7 @@ export async function render(main, app) {
     });
     return h('li', { class: 'book-row' },
       h('div', { class: 'row' },
-        h('a', { class: 'row-main', href: '#/read/' + m.id },
+        h('a', { class: 'row-main', href: '#/read/' + m.id + '/free' },
           h('span', { class: 'row-title', text: m.title }),
           h('span', { class: 'meta', text: [m.author, percent(f) + ' read'].filter(Boolean).join(' · ') })),
         removeBtn),

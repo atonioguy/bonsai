@@ -186,12 +186,28 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.click('.selbar button');
   await page.waitForSelector('.toast.show');
 
-  // 6. reader: shorten the session to 3 s for the test
-  await dbCall('saveSettings', { sessionMinutes: 0.05 });
+  // 6. book card: pick a length, then a timed session (3 s via the route, for the test)
   await page.goto(BASE + '#/');
-  await page.reload();
-  await page.waitForSelector('.book-card a');
-  await page.click('.book-card a');
+  await page.waitForSelector('.book-card .segmented');
+  await page.click('.segmented button:has-text("25 min")');
+  check((await page.textContent('.book-card .btn-primary')) === 'Start 25 min', 'length choice updates Start');
+  const startHref = await page.getAttribute('.book-card .btn-primary', 'href');
+  check(startHref.endsWith('/25'), 'Start links to a 25 min session');
+  check((await dbCall('settings')).sessionMinutes === 25, 'length choice remembered');
+  await shot('07b-book-card');
+  const bookHash = startHref.replace(/\/25$/, '');
+
+  // free read: Done right away → recorded locally only, nothing sent to Side Quest
+  await page.goto(BASE + bookHash + '/free');
+  await page.waitForSelector('.reader-bar');
+  check(await page.$('.reader-bar button:has-text("Done")'), 'free read has Done');
+  await page.mouse.wheel(0, 200);
+  await page.waitForTimeout(1500);
+  await page.click('.reader-bar button:has-text("Done")');
+  await page.waitForSelector('.complete');
+  check((await page.textContent('#done-title')) === 'Under 1 min read', 'free read summary');
+
+  await page.goto(BASE + bookHash + '/0.05');
   await page.waitForSelector('.reader-bar');
   check(!(await page.evaluate(() => window.bad)), 'book script did not run');
   check((await page.textContent('.book-text .meta')).startsWith('Chapter One'), 'chapter label from nav');
@@ -199,6 +215,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   for (let i = 0; i < 5 && !(await page.$('.complete')); i++) { await page.mouse.wheel(0, 200); await page.waitForTimeout(1000); }
   await page.waitForSelector('.complete');
   await page.waitForSelector('.status-ok, .status-warn');
+  check((await page.textContent('#done-title')) === 'Session complete', 'timed session completes');
   await shot('09-complete');
   await page.fill('#takeaway', 'My one-line takeaway.');
   await page.click('.complete button[type=submit]');
