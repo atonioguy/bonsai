@@ -155,9 +155,10 @@ a.tab { display: inline-flex; align-items: center; text-decoration: none; }
 .earlier { display: flex; align-items: center; gap: var(--s-3); color: var(--text-2); font-size: var(--t-sm); }
 .earlier::before, .earlier::after { content: ""; flex: 1; height: 1px; background: var(--line-strong); }
 
+/* Resurfacing cards (a reading-list article coming back, like a throwback) share the soft sage. */
 .listed {
   position: relative; display: flex; flex-direction: column; gap: var(--s-2);
-  padding: var(--s-4) var(--s-5); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  padding: var(--s-4) var(--s-5); background: var(--surface-cool); border-radius: var(--r-md);
 }
 
 .feed { display: flex; flex-direction: column; gap: var(--s-6); margin-top: var(--s-5); }

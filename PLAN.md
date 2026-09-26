@@ -214,7 +214,8 @@ takeaways.
     down, back scrolling up, like Safari); each topic keeps its own place and
     a pull refreshes only that topic, while read/hidden/saved state is shared;
     saved posts show marks (glasses = Reading list, bookmark) on the meta
-    line in the feed and in the article.
+    line in the feed and in the article. v0.7.3: a reading-list article
+    coming back into the feed gets the throwback's soft sage background.
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT

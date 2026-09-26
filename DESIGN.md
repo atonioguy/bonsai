@@ -148,7 +148,7 @@ Nothing else has a shadow.
 | `--bg` | `#F5F0E7` | Page (cream) |
 | `--surface` | `#FBF8F2` | Reading surface, inputs |
 | `--surface-warm` | `#EADFCF` | Book card (sand) |
-| `--surface-cool` | `#E4E8DA` | Throwback card, text highlight (sage-soft) |
+| `--surface-cool` | `#E4E8DA` | Resurfacing cards (throwback, reading list), text highlight (sage-soft) |
 | `--text` | `#332D27` | Primary text |
 | `--text-2` | `#6A5F54` | Secondary text (5.5:1 on bg) |
 | `--accent` | `#56654A` | The one accent (sage-deep): primary buttons, links, selected tab |
@@ -226,8 +226,9 @@ decide, or act. Otherwise cut it.
   is emphasized, nothing is.
 - **Containers:** a container needs a reason. Bonsai uses exactly three:
   - The book card, a different kind of thing with its own action.
-  - The throwback (your own words) and the reading-list card (outlined: your
-    own queue coming back around).
+  - Resurfacing cards, on the soft sage (`--surface-cool`): the throwback
+    (your own words) and the reading-list card (your own queue coming back
+    around).
   - Today's brief (outlined, on paper): a daily digest, not a post.
   - Floating layers: Save quote bar, toasts, the Aa popover, bottom sheets,
     the Recently opened drawer, the long-press preview + action menu, the

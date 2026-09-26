@@ -4,7 +4,7 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.7.2)
+## Live state (v0.7.3)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
@@ -48,6 +48,7 @@ the "Local (circle back)" / "Next" notes).
   v0.7.1 (v0.7.2 changed only the app).
 - v0.7.2: the sticky topic row (slides away scrolling down, back scrolling
   up), each topic keeping its own place, and the saved marks on posts.
+- v0.7.3: resurfacing reading-list cards on the soft sage, like throwbacks.
 - v0.7.0/0.7.1, the rest (the session couldn't reach YouTube, so the Short
   player and the length lookups were only tested with stand-ins):
   - the feed keeps your place when you open posts, switch screens or reopen

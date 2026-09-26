@@ -536,6 +536,8 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.reload();
   await page.goto(BASE + '#/');
   await page.waitForSelector('.listed');
+  await page.evaluate(() => document.querySelector('.listed').scrollIntoView({ block: 'center' }));
+  await shot('05e-listed');
   await page.goto(BASE + '#/collections/list');
   await page.waitForSelector('.feed .entry');
   await shot('10b-reading-list');
