@@ -8,6 +8,7 @@ import { readControls } from '../readtools.js';
 import { getPost, ensurePost, savePost, markOpened } from '../posts.js';
 import { bookmarkSheet } from '../bookmark.js';
 import { tagsEl } from '../entries.js';
+import { loadLengths, lengthOf, requestLengths } from '../lengths.js';
 
 export async function render(main, app, id) {
   const cache = await db.get('kv', 'feed');
@@ -75,6 +76,13 @@ export async function render(main, app, id) {
       listBtn,
       markBtn),
     tools.panel);
+
+  // ---------- meta line (a video's length may arrive a moment later) ----------
+  await loadLengths();
+  const metaLine = h('p', { class: 'meta' });
+  const paintMeta = () => { metaLine.textContent = [item.sourceName, fmtDate(item.published) || relTime(item.published), formatLength(lengthOf(item))].filter(Boolean).join(' · '); };
+  paintMeta();
+  requestLengths([item], app.settings.feedUrl, paintMeta);
 
   // ---------- text ----------
   const text = h('div', { class: 'prose' });
@@ -184,7 +192,7 @@ export async function render(main, app, id) {
     h('article', {},
       h('header', { class: 'article-head' },
         tagsEl(item),
-        h('p', { class: 'meta', text: [item.sourceName, fmtDate(item.published) || relTime(item.published), item.short ? null : formatLength(item.length)].filter(Boolean).join(' · ') }),
+        metaLine,
         h('h1', { class: 'article-title', text: item.title }),
         item.audioUrl ? h('audio', { controls: true, preload: 'none', src: item.audioUrl }) : null,
         item.videoId && /^[\w-]{11}$/.test(item.videoId) ? h('div', { class: 'player' + (item.short ? ' is-short' : '') },

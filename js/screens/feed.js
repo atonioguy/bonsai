@@ -6,7 +6,8 @@ import {
 import { h, enso, icon, toast } from '../ui.js';
 import { currentBook, percent } from '../books.js';
 import { openedMap, seenMap, markSeen, allPosts, savePost, hiddenMap, setHidden } from '../posts.js';
-import { entryEl, hiddenEl } from '../entries.js';
+import { entryEl, hiddenEl, showLength } from '../entries.js';
+import { loadLengths, requestLengths } from '../lengths.js';
 import { enablePostMenu } from '../postmenu.js';
 import { enableSwipe } from '../swipe.js';
 import { enableShorts, autoplayOn } from '../shorts.js';
@@ -64,7 +65,7 @@ export async function render(main, app) {
     throwbacks = dueThrowbacks(saved, Date.now(), 3);
     listed = dueListed(posts, Date.now(), 2);
   }
-  await loadExtras();
+  await Promise.all([loadExtras(), loadLengths()]);
   let seen = await seenMap();
   let loading = false, error = '', note = '';
 
@@ -205,7 +206,7 @@ export async function render(main, app) {
 
   function draw() {
     watcher.disconnect();
-    if (app.topic === '_list') { drawList(); shorts.scan(); return; }
+    if (app.topic === '_list') { drawList(); shorts.scan(); askLengths(); return; }
     let view = views()[app.topic];
     if (!view || (!view.entries && cache?.items.length)) { // never built, or built before anything arrived
       view = views()[app.topic] = buildView(app.topic);
@@ -216,7 +217,12 @@ export async function render(main, app) {
     list.appendChild(endEl());
     paintCounts();
     shorts.scan();
+    askLengths();
   }
+
+  // Videos on this tab without a known length: ask the feed server, fill them in as they come.
+  const askLengths = () => requestLengths([...list.querySelectorAll('.entry[data-post]')].map((el) => lookup(el.dataset.post)).filter(Boolean),
+    s.feedUrl, (videoId, seconds) => showLength(list, videoId, seconds));
 
   // ---------- keep your place ----------
   const topbar = document.querySelector('.topbar');
@@ -360,6 +366,7 @@ export async function render(main, app) {
     els.forEach((el) => { if (el.classList.contains('entry')) watcher.observe(el); });
     paintEnd();
     shorts.scan();
+    askLengths();
   }
 
   // Long-press / right-click menu. After an action only that post is redrawn, so nothing jumps.

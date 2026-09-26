@@ -2,6 +2,7 @@
 import { h, icon } from './ui.js';
 import { relTime, postTags, formatLength } from './logic.js';
 import { app } from './app.js';
+import { lengthOf } from './lengths.js';
 
 export const thumbUrl = (item) => (item.videoId ? `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg` : '');
 // Shorts are tall: the larger thumbnail has the whole frame in its middle, cropped to fit.
@@ -21,11 +22,22 @@ function mediaEl(item) {
       h('img', { src: shortThumb(item), alt: '', loading: 'lazy', decoding: 'async' }),
       h('button', { type: 'button', class: 'thumb-play short-play', 'aria-label': 'Play Short: ' + item.title }, icon('play', 20)));
   }
-  const length = formatLength(item.length);
-  return h('div', { class: 'thumb' },
+  return h('div', { class: 'thumb', 'data-video': item.videoId },
     h('img', { src: thumbUrl(item), alt: '', loading: 'lazy', decoding: 'async' }),
     h('span', { class: 'thumb-play', 'aria-hidden': 'true' }, icon('play', 20)),
-    length ? h('span', { class: 'thumb-time', 'aria-label': 'Length ' + length, text: length }) : null);
+    timeEl(lengthOf(item)));
+}
+
+const timeEl = (seconds) => {
+  const length = formatLength(seconds);
+  return length ? h('span', { class: 'thumb-time', 'aria-label': 'Length ' + length, text: length }) : null;
+};
+
+// A length that arrived after the post was drawn.
+export function showLength(root, videoId, seconds) {
+  for (const t of root.querySelectorAll(`.thumb[data-video="${CSS.escape(videoId)}"]`)) {
+    if (!t.querySelector('.thumb-time')) t.append(timeEl(seconds));
+  }
 }
 
 /**

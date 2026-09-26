@@ -51,7 +51,7 @@ const JATS = `<?xml version="1.0"?><article xmlns:xlink="http://www.w3.org/1999/
 for (const [id, sourceId, sourceName] of [['n1', 'bbc-world', 'BBC World'], ['n2', 'npr-news', 'NPR News'], ['n3', 'the-19th', 'The 19th'], ['n4', 'propublica', 'ProPublica'], ['g1', 'reasons-to-be-cheerful', 'Reasons to be Cheerful']]) {
   items.push({ id, sourceId, sourceName, topic: 'news', kind: 'news', title: 'Sample headline from ' + sourceName, url: 'https://example.org/' + id, published: iso(3), excerpt: 'Sample news summary.', html: '<p>Sample news summary.</p>', audioUrl: '', image: '' });
 }
-items.push({ id: 'v1', sourceId: 'kurzgesagt', sourceName: 'Kurzgesagt', topic: 'science', kind: 'video', videoId: 'abcDEF12345', short: false, length: 754, title: 'A sample explainer video', url: 'https://www.youtube.com/watch?v=abcDEF12345', published: iso(1.5), excerpt: 'Line one.', html: 'Line one.\nLine two.', audioUrl: '', image: '' });
+items.push({ id: 'v1', sourceId: 'kurzgesagt', sourceName: 'Kurzgesagt', topic: 'science', kind: 'video', videoId: 'abcDEF12345', short: false, title: 'A sample explainer video', url: 'https://www.youtube.com/watch?v=abcDEF12345', published: iso(1.5), excerpt: 'Line one.', html: 'Line one.\nLine two.', audioUrl: '', image: '' });
 // two Shorts, and the ADHD paper again from the BPD search (it shows once, with both tags)
 for (const [id, vid, h, sourceId, sourceName] of [['s1', 'shortAAAA01', 20, 'veritasium', 'Veritasium'], ['s2', 'shortBBBB02', 26, 'scishow', 'SciShow']]) {
   items.push({ id, sourceId, sourceName, topic: 'science', kind: 'video', videoId: vid, short: true, title: 'A sample Short ' + id, url: 'https://www.youtube.com/shorts/' + vid, published: iso(h), excerpt: '', html: '', audioUrl: '', image: '' });
@@ -140,6 +140,8 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   page.on('requestfailed', (r) => { if (r.url().startsWith(BASE)) errors.push('failed: ' + r.url()); });
   await page.route('https://feeds.test/**', (route) => {
     if (route.request().method() === 'POST') return route.fulfill({ json: { ok: true } });
+    const v = new URL(route.request().url()).searchParams.get('v');
+    if (v) return route.fulfill({ json: { v, seconds: v === 'abcDEF12345' ? 754 : 0 }, headers: { 'access-control-allow-origin': '*' } });
     return route.fulfill({ json: FEED, headers: { 'access-control-allow-origin': '*' } });
   });
   await page.route('https://www.youtube.com/iframe_api', (route) => route.fulfill({ contentType: 'text/javascript', body: YT_MOCK }));
@@ -208,7 +210,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   check((await page.textContent('.brief')).includes('Good news'), 'brief includes good news');
   check(!(await page.$('.entry[data-id="n1"]')), 'news stays out of the main feed');
   check(await page.$('.entry[data-id="v1"] .thumb img'), 'video shows a thumbnail');
-  check((await page.textContent('.entry[data-id="v1"] .thumb-time')) === '12:34', 'video shows its length');
+  check(await page.waitForSelector('.entry[data-id="v1"] .thumb-time', { timeout: 5000 }).then((e) => e.textContent()).catch(() => '') === '12:34', 'video shows its length (asked from the feed server)');
   check(!(await page.$('.entry[data-id="pm-zdup"]')), 'the same paper from two searches shows once');
   const tagsOf = (id) => page.$$eval(`.entry[data-id="${id}"] .tags li`, (lis) => lis.map((l) => l.textContent));
   check((await tagsOf('pm-open')).join() === 'ADHD,BPD,Article', 'merged post has both searches\' tags + Article (' + (await tagsOf('pm-open')) + ')');
@@ -235,6 +237,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.click('.tab[data-topic="all"]');
   await page.goto(BASE + '#/item/v1');
   await page.waitForSelector('.player iframe');
+  check((await page.textContent('.article-head .meta')).includes('12:34'), 'video length in the article');
   check((await page.getAttribute('.player iframe', 'src')).startsWith('https://www.youtube-nocookie.com/embed/abcDEF12345'), 'video plays in the app');
   await shot('06h-video');
   await page.goto(BASE + '#/');

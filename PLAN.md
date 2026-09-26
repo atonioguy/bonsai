@@ -78,7 +78,7 @@ scroll end when you want it to.
 | Piece | Where | Notes |
 |------|------|------|
 | App (HTML/CSS/JS, PWA) | GitHub Pages, this repo | `atonioguy.github.io/bonsai`. No build step to start. |
-| Feed worker `bonsai-feeds` | Cloudflare (free plan) | Every 5 minutes refreshes the sources from `sources.json` that are over 2 h old, within a size budget (free-plan CPU and KV limits), stores cards in KV and serves `/feed`. Drops paywalled posts for sources marked `hideLocked`. Looks up each long YouTube video's length once. Browsers can't fetch most feeds directly (CORS), so this is required. Holds no personal keys. |
+| Feed worker `bonsai-feeds` | Cloudflare (free plan) | Every 5 minutes refreshes the sources from `sources.json` that are over 2 h old, within a size budget (free-plan CPU and KV limits), stores cards in KV and serves `/feed`. Drops paywalled posts for sources marked `hideLocked`. Answers `/length?v=` for YouTube video lengths (the app keeps them). Browsers can't fetch most feeds directly (CORS), so this is required. Holds no personal keys. |
 | Books, leaves, reading progress | On the phone (IndexedDB) | Private. Books are **never** committed: the repo is public. |
 | Side Quest bridge | Existing `aquamarine-data` worker | Only `POST /focus`. |
 
@@ -205,10 +205,10 @@ takeaways.
     "N new articles" button is gone). Posts end with tags (topic or a
     source's own `tags`, then Article/Video/Short/Podcast), shown above the
     title when opened; the same article from two feeds is one post with both
-    feeds' tags. Long videos show their length (the worker looks it up once
-    per video). Shorts play in the feed, muted until you turn the sound on
+    feeds' tags. Long videos show their length (v0.7.1: the app asks the
+    worker's `/length` for the videos on screen and keeps the answers). Shorts play in the feed, muted until you turn the sound on
     (it stays on until the app restarts); Settings → Autoplay Shorts, and
-    with it off a tap plays one in place.
+    with it off a tap plays one in place. v0.7.1: Shorts centered.
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT

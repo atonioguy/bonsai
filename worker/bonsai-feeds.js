@@ -216,11 +216,10 @@ const REFRESH_GAP = 60_000;          // POST /refresh runs at most once a minute
 const MAX_AGE = 2 * 3600_000;        // a source is due for a refresh after 2 hours
 const RUN_BYTES = 300_000;           // feed text parsed per run: keeps CPU well inside the free limit
 const RUN_MAX = 6;                   // and at most this many sources per run
-// Video lengths aren't in YouTube's feeds, so each long video's watch page is read once (only up to
-// the length, then the download stops). A few per run, within their own byte budget; a known length
-// is carried over on every refresh, and a failed lookup isn't retried.
-const LEN_MAX = 3;
-const LEN_BYTES = 1_500_000;
+// Video lengths aren't in YouTube's feeds. The app asks GET /length?v=ID for the videos it shows
+// and keeps the answers on the phone, so this costs no KV writes. Reading stops once the length shows.
+const LEN_BYTES = 2_000_000;
+const BROWSER_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 // Steady state is ~50 sources / 2 h ≈ 600 KV writes a day, under the free plan's 1,000.
 // Defaults, so the worker runs with only the FEEDS binding set. Override in the worker's variables.
 const SOURCES_URL = 'https://atonioguy.github.io/bonsai/sources.json';
@@ -261,6 +260,13 @@ export default {
         if (!/^(search\?[^#]*|PMC\d{4,10}\/fullTextXML)$/.test(path)) return json({ error: 'not allowed' }, 400, cors);
         const r = await fetch('https://www.ebi.ac.uk/europepmc/webservices/rest/' + path, { cf: { cacheTtl: 86400 } });
         return new Response(r.body, { status: r.status, headers: { ...cors, 'content-type': r.headers.get('content-type') || 'text/plain' } });
+      }
+      // A video's length in seconds (0 if YouTube didn't say). ?debug=1 shows what each try found.
+      if (url.pathname === '/length' && req.method === 'GET') {
+        const v = url.searchParams.get('v') || '';
+        if (!/^[\w-]{11}$/.test(v)) return json({ error: 'bad video id' }, 400, cors);
+        const found = await videoLength(v);
+        return json(url.searchParams.has('debug') ? found : { v, seconds: found.seconds }, 200, cors);
       }
       // How the feed is doing: sources loaded, and when the newest/oldest refresh happened.
       if (url.pathname === '/' || url.pathname === '/health') {
@@ -305,12 +311,8 @@ async function feedBody(env, sources) {
 }
 
 async function refreshTimes(env) {
-  return new Map([...(await storedMeta(env))].map(([id, m]) => [id, m.fetchedAt || 0]));
-}
-
-async function storedMeta(env) {
   const listed = await env.FEEDS.list({ prefix: 'src:' });
-  return new Map(listed.keys.map((k) => [k.name.slice(4), k.metadata || {}]));
+  return new Map(listed.keys.map((k) => [k.name.slice(4), (k.metadata && k.metadata.fetchedAt) || 0]));
 }
 
 // Refresh every source that's due (never fetched, or older than MAX_AGE), stalest first, until the
@@ -318,8 +320,7 @@ async function storedMeta(env) {
 // force: if nothing is due, refresh the stalest one anyway (manual refresh, first visit).
 async function refreshDue(env, sources, { force = false } = {}) {
   if (!sources.length) return [];
-  const meta = await storedMeta(env);
-  const at = new Map([...meta].map(([id, m]) => [id, m.fetchedAt || 0]));
+  const at = await refreshTimes(env);
   const now = Date.now();
   const order = sources.slice().sort((a, b) => (at.get(a.id) || 0) - (at.get(b.id) || 0));
   let due = order.filter((x) => now - (at.get(x.id) || 0) >= MAX_AGE);
@@ -331,50 +332,35 @@ async function refreshDue(env, sources, { force = false } = {}) {
     done.push(x.id);
     if (bytes >= RUN_BYTES) break;
   }
-  await fillLengths(env, sources, meta, done);
   return done;
 }
 
-// Look up the lengths still missing: sources refreshed just now first, then any the list shows
-// with `noLength` left over.
-async function fillLengths(env, sources, meta, refreshed) {
-  const want = sources.filter((x) => /^youtube:/.test(x.feed || '') && (refreshed.includes(x.id) || (meta.get(x.id) || {}).noLength > 0));
-  const budget = { n: LEN_MAX, bytes: LEN_BYTES };
-  for (const x of want) {
-    if (budget.n <= 0 || budget.bytes <= 0) break;
-    const key = 'src:' + x.id;
-    const cur = await env.FEEDS.getWithMetadata(key);
-    if (!cur.value) continue;
-    const items = JSON.parse(cur.value);
-    let changed = false;
-    for (const it of items) {
-      if (budget.n <= 0 || budget.bytes <= 0) break;
-      if (!needsLength(it)) continue;
-      budget.n--;
-      const { seconds, bytes } = await videoLength(it.videoId).catch(() => ({ seconds: 0, bytes: 0 }));
-      budget.bytes -= bytes;
-      it.length = seconds; // 0 = tried, not found: not tried again
-      changed = true;
-    }
-    if (changed) {
-      await env.FEEDS.put(key, JSON.stringify(items), { metadata: { ...(cur.metadata || {}), noLength: items.filter(needsLength).length } });
+// A video's length: from its watch page (read in pieces, stopping as soon as the length shows up),
+// else from YouTube's player API. Each try leaves a note, for /length?debug=1.
+async function videoLength(id) {
+  const out = { v: id, seconds: 0, tried: [] };
+  for (const how of [fromWatchPage, fromPlayerApi]) {
+    try {
+      const r = await how(id);
+      out.tried.push(r.note);
+      if (r.seconds) { out.seconds = r.seconds; break; }
+    } catch (e) {
+      out.tried.push(how.name + ': ' + String(e && e.message || e).slice(0, 120));
     }
   }
+  return out;
 }
 
-const needsLength = (it) => it.videoId && !it.short && it.length === undefined;
-
-// A video's length in seconds from its watch page. The page is large, so it's read in pieces and
-// the download stops as soon as the length shows up.
-async function videoLength(id) {
-  const r = await fetch('https://www.youtube.com/watch?v=' + encodeURIComponent(id), {
-    headers: { 'accept-language': 'en-US,en;q=0.8', 'user-agent': 'Mozilla/5.0 (compatible; BonsaiFeeds/0.1)', cookie: 'CONSENT=YES+1; SOCS=CAI' },
+async function fromWatchPage(id) {
+  const r = await fetch('https://www.youtube.com/watch?v=' + encodeURIComponent(id) + '&hl=en', {
+    headers: { 'user-agent': BROWSER_UA, 'accept-language': 'en-US,en;q=0.8', cookie: 'CONSENT=YES+1; SOCS=CAI' },
     signal: AbortSignal.timeout(FETCH_TIMEOUT),
   });
-  if (!r.ok || !r.body) return { seconds: 0, bytes: 0 };
+  const where = /consent\./.test(r.url || '') ? ' (consent page)' : '';
+  if (!r.ok || !r.body) return { seconds: 0, note: 'watch page: HTTP ' + r.status + where };
   const reader = r.body.getReader();
   const dec = new TextDecoder();
-  let tail = '', bytes = 0, seconds = 0;
+  let tail = '', bytes = 0, seconds = 0, bot = false;
   while (bytes < LEN_BYTES) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -382,10 +368,24 @@ async function videoLength(id) {
     const text = tail + dec.decode(value, { stream: true });
     seconds = lengthIn(text);
     if (seconds) break;
+    if (/not a bot/i.test(text)) bot = true;
     tail = text.slice(-120);
   }
   reader.cancel().catch(() => {});
-  return { seconds, bytes };
+  return { seconds, note: `watch page: ${Math.round(bytes / 1024)} KB, ${seconds ? 'found' : 'no length'}${bot ? ' (bot check)' : ''}${where}` };
+}
+
+async function fromPlayerApi(id) {
+  const r = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-agent': BROWSER_UA, cookie: 'CONSENT=YES+1; SOCS=CAI' },
+    body: JSON.stringify({ videoId: id, context: { client: { clientName: 'WEB', clientVersion: '2.20250901.00.00', hl: 'en' } } }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT),
+  });
+  const text = r.ok ? await r.text() : '';
+  const seconds = lengthIn(text);
+  const status = (/"playabilityStatus":\{"status":"(\w+)"/.exec(text) || [])[1] || '';
+  return { seconds, note: `player API: HTTP ${r.status}${status ? ', ' + status : ''}, ${seconds ? 'found' : 'no length'}` };
 }
 
 function lengthIn(text) {
@@ -403,14 +403,9 @@ async function refreshOne(env, s) {
     const { items: all, bytes } = await fetchOne(s, env);
     const open = s.hideLocked ? all.filter((it) => !isLocked(it)) : all;
     const kept = open.slice(0, PER_SOURCE);
-    const meta = { fetchedAt: Date.now(), ok: true, count: kept.length, hidden: all.length - open.length };
-    if (kept.some((it) => it.videoId)) { // keep the video lengths already looked up
-      const old = await env.FEEDS.get(key);
-      const known = new Map((old ? JSON.parse(old) : []).filter((it) => it.length !== undefined).map((it) => [it.videoId, it.length]));
-      for (const it of kept) if (known.has(it.videoId)) it.length = known.get(it.videoId);
-      meta.noLength = kept.filter(needsLength).length;
-    }
-    await env.FEEDS.put(key, JSON.stringify(kept), { metadata: meta });
+    await env.FEEDS.put(key, JSON.stringify(kept), {
+      metadata: { fetchedAt: Date.now(), ok: true, count: kept.length, hidden: all.length - open.length },
+    });
     return bytes;
   } catch (e) {
     // Keep the last good items; just record the failure.

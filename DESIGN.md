@@ -243,7 +243,7 @@ decide, or act. Otherwise cut it.
   with one row of tags: small `--text-2` labels outlined in `--line-strong`,
   `--r-sm` corners, not buttons. An opened post shows the same row above its
   title. A video's length sits on its thumbnail's corner. Shorts are tall
-  (9:16, at most 70% of the screen height).
+  (9:16, at most 70% of the screen height) and centered in the column.
 
   Articles sit directly on the page. No cards inside cards.
 - **Empty space:** whitespace is intentional, so don't fill it with UI. If a

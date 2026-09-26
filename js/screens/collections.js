@@ -4,12 +4,14 @@ import { h, icon, toast } from '../ui.js';
 import { sourceLine } from './feed.js';
 import { allPosts, savePost, folders, addFolder, renameFolder, deleteFolder, openedMap } from '../posts.js';
 import { entryEl } from '../entries.js';
+import { loadLengths } from '../lengths.js';
 import { enablePostMenu } from '../postmenu.js';
 
 const SECTIONS = [['list', 'Reading list'], ['bookmarks', 'Bookmarks'], ['quotes', 'Quotes']];
 
 /** #/collections[/list|/bookmarks|/quotes] and #/collections/folder/:id (id 'all' = every bookmark) */
 export async function render(main, app, tab = 'list', id = null) {
+  await loadLengths(); // known video lengths, for the posts listed here
   if (tab === 'folder') return renderFolder(main, app, id);
   main.append(
     h('h1', { class: 'screen-title', text: 'Collections' }),
