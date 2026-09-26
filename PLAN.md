@@ -217,7 +217,15 @@ worker, which needs a domain the owner owns. Each issue becomes one Nearby post
 need a cleanup pass for the article view.
 
 Next:
-- Connections between new items and saved quotes.
+- Connections (brainstormed, parked). Start cheap: on-device keyword matching
+  (distinctive terms, TF-IDF style) between new posts and what you've engaged
+  with (opened, bookmarked, reacted, noted, quoted), with the shared words shown
+  as the reason. Show it as a "Connects to" section at the end of articles plus
+  a rare line on feed posts. Later: threads ("5 things about rejection
+  sensitivity this month"), cross-topic links on the Bonsai tab, and old reads
+  resurfacing next to new ones. Upgrade to meaning-based matching (Cloudflare
+  Workers AI embeddings, made once per new post by the worker) only if keyword
+  matches feel too literal; check the free allowance first.
 - A cross-device backup of saved quotes (right now: Export/Import in Settings).
 - An optional "You're caught up" daily stopping point.
 
