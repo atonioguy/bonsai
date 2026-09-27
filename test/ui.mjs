@@ -57,6 +57,8 @@ for (const [id, vid, h, sourceId, sourceName] of [['s1', 'shortAAAA01', 20, 'ver
   items.push({ id, sourceId, sourceName, topic: 'science', kind: 'video', videoId: vid, short: true, title: 'A sample Short ' + id, url: 'https://www.youtube.com/shorts/' + vid, published: iso(h), excerpt: '', html: '', audioUrl: '', image: '' });
 }
 items.push({ ...items.find((i) => i.id === 'pm-open'), id: 'pm-zdup', sourceId: 'pubmed-alert-borderline-personality', sourceName: 'PubMed alert: borderline personality', url: 'https://pubmed.ncbi.nlm.nih.gov/39797602/?utm_source=Other&fc=2' });
+// stored by the feed server under Mind, before Psyche moved to Psychology in sources.json
+items.push({ id: 'psy1', sourceId: 'psyche', sourceName: 'Psyche', topic: 'mind', kind: 'essay', title: 'A sample Psyche essay', url: 'https://example.org/psyche/1', published: iso(40), excerpt: 'Sample essay summary.', html: '<p>Sample essay.</p>', audioUrl: '', image: '' });
 // A stand-in for YouTube's player API (the real one can't be reached from tests).
 const YT_MOCK = `window.YT = { Player: class {
   constructor(el, o) { this.o = o; this.id = o.videoId; this.muted = true; const f = document.createElement('iframe'); f.title = 'YouTube'; el.replaceWith(f); window.__yt = this;
@@ -346,8 +348,14 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   check(placeReload.key === placeBefore.key && Math.abs(placeReload.y - placeBefore.y) < 3, `feed place kept after a restart (${JSON.stringify(placeBefore)} → ${JSON.stringify(placeReload)})`);
   check(await page.getAttribute('.short-sound', 'aria-pressed').catch(() => null) !== 'true', 'sound is off again after a restart');
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.click('.tab:has-text("Mind")');
+  await page.click('.tab[data-topic="mind"]');
   check(!(await page.$('.book-card')), 'topic filter hides book card');
+  check(!(await page.$('.entry[data-id="psy1"]')), 'a Psyche essay is no longer under Mental health');
+  check((await page.textContent('.tab[data-topic="mind"]')).startsWith('Mental health'), 'Mind is now Mental health');
+  await page.click('.tab[data-topic="psychology"]');
+  check(await page.waitForSelector('.entry[data-id="psy1"]', { timeout: 3000 }).catch(() => null), 'Psyche shows under Psychology (topic from sources.json)');
+  check((await page.$$eval('.entry[data-id="psy1"] .tags li', (l) => l.map((x) => x.textContent))).join() === 'Psychology,Article', 'Psychology tag');
+  check(await page.$('.tab[data-topic="self-help"]'), 'Self-help tab');
   await page.click('.tab:has-text("All")');
 
   // the topics stick under the top bar: away while scrolling down, back when scrolling up

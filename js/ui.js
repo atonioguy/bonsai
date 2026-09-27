@@ -171,7 +171,7 @@ export function toast(message, action) {
 
 // ---------- misc ----------
 export const TOPIC_NAMES = {
-  mind: 'Mind', trans: 'Trans health', 'queer-history': 'Queer history', 'tech-society': 'Tech & society', tao: 'Tao',
+  mind: 'Mental health', psychology: 'Psychology', 'self-help': 'Self-help', trans: 'Trans health', 'queer-history': 'Queer history', 'tech-society': 'Tech & society', tao: 'Tao',
 };
 
 export function fmtDate(iso) {

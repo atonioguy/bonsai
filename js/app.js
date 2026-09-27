@@ -6,7 +6,7 @@ import { applyTheme, applyText } from './prefs.js';
 import { openRecent } from './recent.js';
 import { initJump, jumpRefresh } from './jump.js';
 
-export const VERSION = '0.7.3';
+export const VERSION = '0.8.0';
 
 const SCREENS = {
   feed: () => import('./screens/feed.js'),

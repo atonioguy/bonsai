@@ -230,3 +230,19 @@ test('formatLength', () => {
   assert.equal(formatLength(0), '');
   assert.equal(formatLength(undefined), '');
 });
+
+import { retopic } from '../js/logic.js';
+
+test('retopic: topics follow the current sources.json', () => {
+  const sources = [{ id: 'psyche', topic: 'psychology' }, { id: 'pm', topic: 'mind' }];
+  const [a, b, c] = retopic([
+    { id: 'a', sourceId: 'psyche', topic: 'mind' },
+    { id: 'b', sourceId: 'gone', topic: 'mind' },
+    { id: 'c', sourceId: 'pm', sourceIds: ['pm', 'psyche'], topic: 'mind', topics: ['mind'] },
+  ], sources);
+  assert.equal(a.topic, 'psychology', 'moved source');
+  assert.equal(b.topic, 'mind', 'a source no longer listed keeps its topic');
+  assert.deepEqual(c.topics, ['mind', 'psychology'], 'a merged post counts for both');
+  const same = { id: 'd', sourceId: 'pm', topic: 'mind' };
+  assert.equal(retopic([same], sources)[0], same, 'unchanged posts are left as they are');
+});

@@ -1,5 +1,5 @@
 import * as db from '../db.js';
-import { relTime, newListEntry, articleIds, libkeyUrl, formatLength } from '../logic.js';
+import { relTime, newListEntry, articleIds, libkeyUrl, formatLength, retopic } from '../logic.js';
 import { loadFullText } from '../fulltext.js';
 import { h, icon, toast, fmtDate, sharePost, REACTIONS, reactionIcon, avatarEl } from '../ui.js';
 import { sanitize } from '../sanitize.js';
@@ -14,7 +14,8 @@ export async function render(main, app, id) {
   const cache = await db.get('kv', 'feed');
   const stored = await getPost(id);
   const inView = Object.values(app.feedView?.tabs || {}).map((v) => v.items?.[id]).find(Boolean); // left the server's feed since
-  const item = cache?.items.find((i) => i.id === id || i.dupIds?.includes(id)) || stored?.item || inView;
+  const found = cache?.items.find((i) => i.id === id || i.dupIds?.includes(id)) || stored?.item || inView;
+  const item = found && retopic([found], app.config.sources)[0];
 
   const backBtn = h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Back', onclick: () => app.back() }, icon('back'));
 

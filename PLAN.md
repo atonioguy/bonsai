@@ -29,7 +29,8 @@ branded copy.
 
 1. **The feed.** Short-first cards: an abstract, an excerpt, a quote, a clip.
    Tap a card to open the full paper, essay, episode or chapter.
-2. **Topics.** Mind, Trans health, Queer history, Tech & society and Tao.
+2. **Topics.** Mental health, Psychology, Self-help, Trans health, Queer
+   history, Tech & society, Tao and more (see sources.json).
    Filter the feed by topic, and switch sources off in Library. On the Saved
    screen each topic is a branch of the bonsai, but UI copy stays plain (see
    DESIGN.md §2).
@@ -216,6 +217,14 @@ takeaways.
     saved posts show marks (glasses = Reading list, bookmark) on the meta
     line in the feed and in the article. v0.7.3: a reading-list article
     coming back into the feed gets the throwback's soft sage background.
+
+17. ✅ v0.8.0: Mind split in three. Mental health (id stays `mind`, so saved
+    quotes and the tree's branch carry over): the PubMed searches, the BPD
+    journal, Dr. Tracey Marks. Psychology: Psyche, SciShow Psych, Astral Codex
+    Ten. Self-help: How to ADHD, HealthyGamerGG. The app now takes each
+    post's topic from the current sources.json (not the worker's stored
+    copy), so moving a source needs no redeploy and applies at once. The
+    tree has two more branch spots (12).
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT

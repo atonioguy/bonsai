@@ -110,6 +110,17 @@ export const topicsOf = (i) => i.topics || [i.topic];
 export const hasTopic = (i, topic) => topicsOf(i).includes(topic);
 export const isMuted = (i, muted) => sourcesOf(i).every((id) => muted.has(id));
 
+// Topics come from the current sources.json, not the copy the feed server stored, so moving a
+// source to another topic takes effect at once. Unknown sources keep what they had.
+export function retopic(items, sources = []) {
+  const topicOf = new Map(sources.map((x) => [x.id, x.topic]));
+  return items.map((i) => {
+    const topics = [...new Set(sourcesOf(i).map((id) => topicOf.get(id)).filter(Boolean))];
+    if (!topics.length || (topics.length === 1 && !i.topics && topics[0] === i.topic)) return i;
+    return i.topics || topics.length > 1 ? { ...i, topic: topics[0], topics } : { ...i, topic: topics[0] };
+  });
+}
+
 // What makes two feed items the same article: the PubMed id or DOI in its link, the YouTube video,
 // else the link without tracking parameters. Only the link counts (a DOI cited in the text doesn't).
 export function dupKey(item) {

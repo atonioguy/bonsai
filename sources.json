@@ -3,8 +3,18 @@
   "topics": [
     {
       "id": "mind",
-      "name": "Mind",
-      "about": "Psychiatry & psychology: ADHD, BPD, depressive and anxiety disorders"
+      "name": "Mental health",
+      "about": "Clinical research, and clinicians on symptoms and care: ADHD, BPD, depressive and anxiety disorders"
+    },
+    {
+      "id": "psychology",
+      "name": "Psychology",
+      "about": "How minds work: ideas and science"
+    },
+    {
+      "id": "self-help",
+      "name": "Self-help",
+      "about": "Practical tips for daily life"
     },
     {
       "id": "health",
@@ -99,7 +109,7 @@
     },
     {
       "id": "psyche",
-      "topic": "mind",
+      "topic": "psychology",
       "name": "Psyche",
       "kind": "essay",
       "site": "https://psyche.co/",
@@ -108,7 +118,7 @@
     },
     {
       "id": "astral-codex-ten",
-      "topic": "mind",
+      "topic": "psychology",
       "name": "Astral Codex Ten",
       "kind": "substack",
       "site": "https://www.astralcodexten.com/",
@@ -414,8 +424,8 @@
     },
     {
       "id": "how-to-adhd",
-      "topic": "mind",
-      "tags": ["ADHD"],
+      "topic": "self-help",
+      "tags": ["Self-help", "ADHD"],
       "name": "How to ADHD",
       "kind": "video",
       "site": "https://www.youtube.com/@HowtoADHD",
@@ -433,7 +443,7 @@
     },
     {
       "id": "healthygamergg",
-      "topic": "mind",
+      "topic": "self-help",
       "name": "HealthyGamerGG",
       "kind": "video",
       "site": "https://www.youtube.com/@HealthyGamerGG",
@@ -442,7 +452,7 @@
     },
     {
       "id": "scishow-psych",
-      "topic": "mind",
+      "topic": "psychology",
       "name": "SciShow Psych",
       "kind": "video",
       "site": "https://www.youtube.com/@SciShowPsych",

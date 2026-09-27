@@ -1,6 +1,6 @@
 import * as db from '../db.js';
 import {
-  mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, mergeDuplicates, SESSION_CHOICES,
+  mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, mergeDuplicates, retopic, SESSION_CHOICES,
   dueListed, afterListShown, newCounts, splitNew, pickBrief, dayKey, BRIEF_SIZE, serverHealth, topicsOf, isMuted, seenOf,
 } from '../logic.js';
 import { h, enso, icon, toast } from '../ui.js';
@@ -23,12 +23,14 @@ export async function render(main, app) {
     cache = { ...cache, items: mergeDuplicates(cache.items), merged: true };
     await db.put('kv', 'feed', cache);
   }
+  if (cache) cache = { ...cache, items: retopic(cache.items, app.config.sources) };
   const muted = new Set(s.muted);
 
   // The feed keeps its order until you refresh it (pull down, or Refresh at the end): per tab, the
   // posts in the order you saw them and the post at the top of the screen. Kept across app restarts.
   if (app.feedView === undefined) app.feedView = (await db.get('kv', 'feedView')) || null;
-  const sig = JSON.stringify([s.muted, Boolean(s.newsInFeed)]); // a Settings/Library change rebuilds it
+  // A Settings/Library change, or a source moved to another topic, rebuilds it.
+  const sig = JSON.stringify([s.muted, Boolean(s.newsInFeed), app.config.sources.map((x) => x.id + ':' + x.topic).join()]);
   if (!app.feedView || app.feedView.sig !== sig) app.feedView = { sig, tabs: {} };
   const views = () => app.feedView.tabs;
   let saveTimer = null;
@@ -345,6 +347,7 @@ export async function render(main, app) {
       if (!r.ok) throw new Error('The feed server answered ' + r.status + '.');
       cache = { ...normalizeFeed(await r.json()), fetchedAt: Date.now() };
       await db.put('kv', 'feed', cache);
+      cache = { ...cache, items: retopic(cache.items, app.config.sources) };
       index();
       await initSeen();
       briefItems = await brief();

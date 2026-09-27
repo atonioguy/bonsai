@@ -4,7 +4,7 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.7.3)
+## Live state (v0.8.0)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
@@ -29,6 +29,8 @@ the "Local (circle back)" / "Next" notes).
 - Duplicates (same PubMed id, DOI in the link, YouTube id, or cleaned link)
   merge in `mergeDuplicates` (js/logic.js). The kept id is the smallest, and
   the others are kept in `dupIds`.
+- A post's topic comes from the current sources.json (`retopic` in
+  js/logic.js), not the worker's stored copy.
 - Tags come from `postTags`: a source's `tags` in sources.json, else its topic
   name, then Article/Video/Short/Podcast.
 - Each topic tab has its own saved order and place (`feedView.tabs[topic]`).
@@ -49,6 +51,10 @@ the "Local (circle back)" / "Next" notes).
 - v0.7.2: the sticky topic row (slides away scrolling down, back scrolling
   up), each topic keeping its own place, and the saved marks on posts.
 - v0.7.3: resurfacing reading-list cards on the soft sage, like throwbacks.
+- v0.8.0: Mind split into Mental health / Psychology / Self-help (owner's
+  choice; HealthyGamerGG goes in Self-help). Adding the two topics moved the
+  other topics' branches on the Bonsai tree to new spots once (branches
+  follow the topic order).
 - v0.7.0/0.7.1, the rest (the session couldn't reach YouTube, so the Short
   player and the length lookups were only tested with stand-ins):
   - the feed keeps your place when you open posts, switch screens or reopen

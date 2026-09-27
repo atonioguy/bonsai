@@ -79,8 +79,10 @@ engagement numbers, and no metadata rows.
     you finish it.
   - **Free read**: reading with no timer. All the active time counts.
   - **Throwback**: a saved quote shown again in the feed.
-  - **Topic**: Mind, Health, Science, History, Queer history, Trans health,
-    Tech & society, Tao, News, Nearby.
+  - **Topic**: Mental health (clinical research and clinicians on symptoms and
+    care), Psychology (how minds work), Self-help (practical tips), Health,
+    Science, History, Queer history, Trans health, Tech & society, Tao, News,
+    Nearby.
   - **Today's brief**: the once-a-day card of five news stories, one of them
     good news. News stays out of the main feed unless switched on in Settings.
   - **Video** / **Short**: YouTube posts, played in the app. Shorts play right
