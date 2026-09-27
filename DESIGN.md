@@ -163,7 +163,8 @@ Nothing else has a shadow.
 
 **Dark theme** (`:root[data-theme="dark"]` in tokens.css): warm charcoal with
 a light sage accent. It uses the same token names, so components never branch on
-the theme. Settings → Appearance offers Match phone, Light or Dark. The choice
+the theme. Settings → Appearance offers Match phone, Light or Dark, and articles and books
+have a one-tap theme button beside Aa (a sun in light, a moon in dark). The choice
 is stored per device and applied before first paint by the inline script in
 `index.html`.
 

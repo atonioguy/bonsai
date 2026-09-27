@@ -54,6 +54,8 @@ const ICONS = {
   hide: `<path ${STROKE} d="M4 12s3-6 8-6c1.6 0 3 .5 4.2 1.3M20 12s-3 6-8 6c-1.6 0-3-.5-4.2-1.3"/><path ${STROKE} d="M5 19L19 5"/>`,
   arrowDown: `<path ${STROKE} d="M12 5v14M6 13l6 6 6-6"/>`,
   arrowUp: `<path ${STROKE} d="M12 19V5M6 11l6-6 6 6"/>`,
+  sun: `<circle ${STROKE} cx="12" cy="12" r="4"/><path ${STROKE} d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>`,
+  moon: `<path ${STROKE} d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/>`,
   refresh: `<path ${STROKE} d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path ${STROKE} d="M19.5 4.5v4h-4"/>`,
   soundOn: `<path ${STROKE} d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path ${STROKE} d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10"/>`,
   soundOff: `<path ${STROKE} d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path ${STROKE} d="M16 10l4 4M20 10l-4 4"/>`,

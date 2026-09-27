@@ -4,7 +4,7 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.8.0)
+## Live state (v0.8.1)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
@@ -55,6 +55,8 @@ the "Local (circle back)" / "Next" notes).
   choice; HealthyGamerGG goes in Self-help). Adding the two topics moved the
   other topics' branches on the Bonsai tree to new spots once (branches
   follow the topic order).
+- v0.8.1: sun/moon theme button beside Aa (articles and books).
+- Parked: "Look up" (in-app search panel), see PLAN.md.
 - v0.7.0/0.7.1, the rest (the session couldn't reach YouTube, so the Short
   player and the length lookups were only tested with stand-ins):
   - the feed keeps your place when you open posts, switch screens or reopen
@@ -93,6 +95,7 @@ the "Local (circle back)" / "Next" notes).
     button
   - the newsletter route to those calendars
   - Reddit, Bluesky and Mastodon
+  - Look up: an in-app search panel that minimizes to a tab
   - City of Arlington and KERA feed links
   - connections between posts
 - No Texas news in the brief.

@@ -425,7 +425,14 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   // 5b. article tools: text size, share, reading list, bookmark + folder, reaction, note
   await page.goto(BASE + '#/item/gen0');
   await page.waitForSelector('.article-bar');
-  await page.click('[aria-label="Text and theme"]');
+  const themeBefore = await page.getAttribute('html', 'data-theme');
+  await page.click('.article-tools [aria-label="Dark theme"]');
+  check((await page.getAttribute('html', 'data-theme')) !== themeBefore, 'the sun/moon button switches the theme');
+  check(await page.$('.article-tools [aria-label="Dark theme"] .icon') && (await page.getAttribute('.article-tools [aria-label="Dark theme"]', 'aria-pressed')) === String(themeBefore === 'light'), 'sun/moon button shows the theme');
+  await shot('06i-theme-toggled');
+  await page.click('.article-tools [aria-label="Dark theme"]');
+  check((await page.getAttribute('html', 'data-theme')) === themeBefore, 'and back');
+  await page.click('[aria-label="Text size"]');
   await page.click('[aria-label="Larger text"]');
   await page.click('[aria-label="Larger text"]');
   check((await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--read-scale').trim())) === '1.25', 'text size grows');

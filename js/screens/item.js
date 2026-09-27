@@ -74,6 +74,7 @@ export async function render(main, app, id) {
     backBtn,
     h('div', { class: 'article-tools' },
       tools.button,
+      tools.theme,
       h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Share', onclick: () => sharePost(item) }, icon('share')),
       listBtn,
       markBtn),

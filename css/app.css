@@ -233,6 +233,7 @@ a.tab { display: inline-flex; align-items: center; text-decoration: none; }
 }
 .article-tools { display: flex; align-items: center; }
 .article-tools .btn-icon[aria-pressed="true"] { color: var(--accent); }
+.article-tools .theme-toggle[aria-pressed="true"] { color: var(--text-2); } /* the moon is a state, not a highlight */
 .end-block { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-7); padding-top: var(--s-6); border-top: 1px solid var(--line); }
 .end-block .section-title { margin: 0; }
 .fulltext:not(:empty) { margin-top: var(--s-7); padding-top: var(--s-6); border-top: 1px solid var(--line); }

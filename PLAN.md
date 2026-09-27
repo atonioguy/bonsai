@@ -225,6 +225,8 @@ takeaways.
     post's topic from the current sources.json (not the worker's stored
     copy), so moving a source needs no redeploy and applies at once. The
     tree has two more branch spots (12).
+    v0.8.1: light/dark is its own one-tap button beside Aa (sun/moon) on
+    articles and books; the Aa popover keeps text size.
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT
@@ -242,6 +244,18 @@ already reads. (3) Most private option: Cloudflare Email Routing into the
 worker, which needs a domain the owner owns. Each issue becomes one Nearby post
 (events aren't dated, so they won't reach the Calendar). Newsletter HTML will
 need a cleanup pass for the article view.
+
+Look up (parked, the owner's idea): a panel to search without leaving
+Bonsai, minimized to a small tab above the bottom bar that reopens or closes,
+and a "Look up" button on selected text. A real in-app browser isn't possible:
+Google and most sites refuse to be shown inside another page, and iPhone gives
+home-screen apps no browser view. What can show inside Bonsai: definitions
+(Wiktionary), summaries (Wikipedia), research (Europe PMC; open-access papers
+open in Bonsai). For a full web results list, pick one: DuckDuckGo's
+instant answers (free, no key, but answers only, not a results list), Brave
+Search API (free tier, a key typed into Settings on the phone), or Google
+Programmable Search (free search ID). Result pages still open in the Safari
+view.
 
 Next:
 - Connections (brainstormed, parked). Start cheap: on-device keyword matching

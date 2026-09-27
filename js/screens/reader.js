@@ -60,6 +60,7 @@ export async function render(main, app, bookId, modeParam = 'free') {
     timeText,
     ring || doneBtn,
     tools.button,
+    tools.theme,
     tools.panel);
 
   function paintClock() {
