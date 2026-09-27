@@ -227,6 +227,8 @@ takeaways.
     tree has two more branch spots (12).
     v0.8.1: light/dark is its own one-tap button beside Aa (sun/moon) on
     articles and books; the Aa popover keeps text size.
+    v0.8.2: Collections → Notes lists every note you wrote under an article,
+    newest first, each linking to its article (delete with Undo).
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT

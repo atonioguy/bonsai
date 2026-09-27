@@ -607,6 +607,11 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.waitForSelector('.saved-item');
   check((await page.$$('.saved-item')).length === 3, 'three saved entries');
   await shot('10-saved');
+  await page.goto(BASE + '#/collections/notes');
+  await page.waitForSelector('.saved-item');
+  check((await page.textContent('.saved-item .quote')) === 'Compare with the ADHD review.', 'notes listed in Collections');
+  check((await page.getAttribute('.note-source', 'href')) === '#/item/gen0', 'a note links to its article');
+  await shot('10e-notes');
 
   // bonsai tab: grows with activity
   await page.goto(BASE + '#/bonsai');

@@ -4,7 +4,7 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.8.1)
+## Live state (v0.8.2)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
@@ -56,6 +56,7 @@ the "Local (circle back)" / "Next" notes).
   other topics' branches on the Bonsai tree to new spots once (branches
   follow the topic order).
 - v0.8.1: sun/moon theme button beside Aa (articles and books).
+- v0.8.2: Collections → Notes (all your article notes in one place).
 - Parked: "Look up" (in-app search panel), see PLAN.md.
 - v0.7.0/0.7.1, the rest (the session couldn't reach YouTube, so the Short
   player and the length lookups were only tested with stand-ins):

@@ -6,7 +6,7 @@ import { applyTheme, applyText } from './prefs.js';
 import { openRecent } from './recent.js';
 import { initJump, jumpRefresh } from './jump.js';
 
-export const VERSION = '0.8.1';
+export const VERSION = '0.8.2';
 
 const SCREENS = {
   feed: () => import('./screens/feed.js'),
@@ -23,7 +23,7 @@ const ROUTES = [
   [/^#\/item\/([^/]+)$/, 'item'],
   [/^#\/library$/, 'library'],
   [/^#\/read\/([^/]+)(?:\/(free|[0-9.]+))?$/, 'read'],
-  [/^#\/(?:collections|saved)(?:\/(list|bookmarks|quotes|folder)(?:\/([^/]+))?)?$/, 'collections'],
+  [/^#\/(?:collections|saved)(?:\/(list|bookmarks|quotes|notes|folder)(?:\/([^/]+))?)?$/, 'collections'],
   [/^#\/bonsai$/, 'bonsai'],
   [/^#\/settings$/, 'settings'],
 ];

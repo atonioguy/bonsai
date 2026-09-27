@@ -7,18 +7,26 @@ import { entryEl } from '../entries.js';
 import { loadLengths } from '../lengths.js';
 import { enablePostMenu } from '../postmenu.js';
 
-const SECTIONS = [['list', 'Reading list'], ['bookmarks', 'Bookmarks'], ['quotes', 'Quotes']];
+const SECTIONS = [['list', 'Reading list'], ['bookmarks', 'Bookmarks'], ['quotes', 'Quotes'], ['notes', 'Notes']];
 
-/** #/collections[/list|/bookmarks|/quotes] and #/collections/folder/:id (id 'all' = every bookmark) */
+/** #/collections[/list|/bookmarks|/quotes|/notes] and #/collections/folder/:id (id 'all' = every bookmark) */
 export async function render(main, app, tab = 'list', id = null) {
   await loadLengths(); // known video lengths, for the posts listed here
   if (tab === 'folder') return renderFolder(main, app, id);
-  main.append(
-    h('h1', { class: 'screen-title', text: 'Collections' }),
-    h('nav', { class: 'tabs saved-tabs', 'aria-label': 'Collection sections' },
-      SECTIONS.map(([key, label]) => h('a', { class: 'tab', href: '#/collections/' + key, 'aria-current': key === tab ? 'page' : null }, label))));
+  const nav = h('nav', { class: 'tabs saved-tabs', 'aria-label': 'Collection sections' },
+    SECTIONS.map(([key, label]) => h('a', { class: 'tab', href: '#/collections/' + key, 'aria-current': key === tab ? 'page' : null }, label)));
+  main.append(h('h1', { class: 'screen-title', text: 'Collections' }), nav);
+  // On a narrow phone the sections scroll sideways: keep the current one in view.
+  const shown = app.onShown;
+  app.onShown = () => {
+    if (shown) shown();
+    const cur = nav.querySelector('[aria-current]');
+    const r = cur?.getBoundingClientRect(), row = nav.getBoundingClientRect();
+    if (r && r.right > row.right) nav.scrollLeft += r.right - row.right + 16;
+  };
   if (tab === 'bookmarks') return renderBookmarks(main, app);
   if (tab === 'quotes') return renderQuotes(main, app);
+  if (tab === 'notes') return renderNotes(main, app);
   return renderList(main, app);
 }
 
@@ -161,5 +169,38 @@ async function renderQuotes(main, app) {
         } }, icon('trash', 20))));
     return li;
   }
+  main.append(list);
+}
+
+// ---------- notes: everything you wrote under articles, newest first ----------
+async function renderNotes(main, app) {
+  const all = (await allPosts()).flatMap((p) => (p.notes || []).map((n) => ({ p, n }))).sort((a, b) => b.n.at - a.n.at);
+  if (!all.length) {
+    main.append(h('div', { class: 'empty' },
+      h('h2', { text: 'No notes yet' }),
+      h('p', { class: 'lead', text: 'Write one under Notes at the end of an article.' })));
+    return;
+  }
+  const list = h('ul', { class: 'saved-list' }, all.map(({ p, n }) => {
+    const li = h('li', { class: 'saved-item' },
+      h('blockquote', { class: 'quote note', text: n.text }),
+      h('div', { class: 'saved-foot' },
+        h('p', { class: 'meta' },
+          h('a', { class: 'note-source', href: '#/item/' + encodeURIComponent(p.id), text: p.item.title }),
+          ' · ' + relTime(n.at)),
+        h('button', { type: 'button', class: 'btn-icon', 'aria-label': 'Delete note', onclick: async () => {
+          const post = (await allPosts()).find((x) => x.id === p.id) || p;
+          post.notes = (post.notes || []).filter((x) => x.id !== n.id);
+          await savePost(post);
+          li.remove();
+          toast('Deleted', { label: 'Undo', run: async () => {
+            const back = (await allPosts()).find((x) => x.id === p.id) || post;
+            back.notes = [...(back.notes || []), n].sort((a, b) => a.at - b.at);
+            await savePost(back);
+            rerender(main, app, 'notes');
+          } });
+        } }, icon('trash', 20))));
+    return li;
+  }));
   main.append(list);
 }
