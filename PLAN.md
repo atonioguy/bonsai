@@ -229,6 +229,9 @@ takeaways.
     articles and books; the Aa popover keeps text size.
     v0.8.2: Collections → Notes lists every note you wrote under an article,
     newest first, each linking to its article (delete with Undo).
+    v0.8.3: each bottom tab remembers where you were (a post open in Feed is
+    still open after a trip to Collections); tapping the tab you're in goes
+    to its own screen, then to the top.
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT

@@ -6,7 +6,7 @@ import { applyTheme, applyText } from './prefs.js';
 import { openRecent } from './recent.js';
 import { initJump, jumpRefresh } from './jump.js';
 
-export const VERSION = '0.8.2';
+export const VERSION = '0.8.3';
 
 const SCREENS = {
   feed: () => import('./screens/feed.js'),
@@ -46,8 +46,12 @@ export const app = {
   prevHash: null,
   onShown: null, // a screen can set this to run once it's on screen (e.g. restore a scroll position)
   topicName(id) { return this.config.topics.find((t) => t.id === id)?.name || ''; },
-  // Back to wherever you came from inside the app (feed, a folder, Recent…), else the feed.
-  back() { if (this.prevHash) history.back(); else location.hash = '#/'; },
+  // Back to the previous screen in this tab (a post opened from the feed goes back to the feed,
+  // even after a trip to another tab), else the tab's own screen.
+  back() {
+    const stack = stacks[section] || [];
+    location.hash = stack.length > 1 ? stack[stack.length - 2] : ROOT[section] || '#/';
+  },
   async reloadSettings() { this.settings = await db.settings(); return this.settings; },
 };
 
@@ -55,6 +59,37 @@ export const app = {
 const depthOf = (name, params) => (name === 'item' || name === 'read' || (name === 'collections' && params[0] === 'folder') ? 1 : 0);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let depth = 0;
+
+// Each bottom tab remembers where you were in it, like tabs in iPhone apps: a post opened from the
+// feed is still open when you come back to Feed. Posts and books belong to the tab they were
+// opened from. Tapping the tab you're in goes back to its own screen, then to the top.
+const ROOT = { feed: '#/', library: '#/library', collections: '#/collections', bonsai: '#/bonsai', settings: '#/settings' };
+const SECTION = { feed: 'feed', library: 'library', collections: 'collections', bonsai: 'bonsai', settings: 'settings' };
+let section = 'feed';
+const stacks = {}; // tab → the screens visited in it, oldest first
+
+function track(name, hash) {
+  section = SECTION[name] || section; // a post or book stays in the tab it was opened from
+  const stack = stacks[section] || (stacks[section] = []);
+  if (SECTION[name] && hash === ROOT[section]) stack.length = 0; // the tab's own screen starts it over
+  if (stack.length > 1 && stack[stack.length - 2] === hash) stack.pop(); // went back
+  else if (stack[stack.length - 1] !== hash) stack.push(hash);
+  if (stack.length > 30) stack.splice(0, stack.length - 30);
+}
+
+function onNavTap(e) {
+  const a = e.currentTarget;
+  const tab = a.dataset.screen;
+  e.preventDefault();
+  const stack = stacks[tab] || [];
+  const current = location.hash || '#/';
+  if (tab !== section) { // back where you left it, in that tab
+    section = tab;
+    location.hash = stack[stack.length - 1] || ROOT[tab];
+  }
+  else if (current !== ROOT[tab] && !(tab === 'feed' && (current === '#' || current === '#/'))) location.hash = ROOT[tab];
+  else window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+}
 
 let cleanup = null;
 let first = true;
@@ -78,6 +113,7 @@ async function doRoute() {
     const m = re.exec(hash);
     if (m) { name = n; params = m.slice(1).map((x) => (x == null ? x : decodeURIComponent(x))); break; }
   }
+  track(name, hash === '#' ? '#/' : hash);
   if (cleanup) { try { await cleanup(); } catch (e) { console.warn(e); } cleanup = null; }
 
   const mod = await SCREENS[name]();
@@ -97,7 +133,7 @@ async function doRoute() {
   cleanup = (await mod.render(screen, app, ...params)) || null;
   document.body.dataset.route = name;
   for (const a of document.querySelectorAll('.nav a')) {
-    if (a.dataset.screen === name) a.setAttribute('aria-current', 'page');
+    if (a.dataset.screen === section) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   }
   main.replaceChildren(screen);
@@ -122,7 +158,7 @@ async function boot() {
   applyTheme();
   applyText();
   const nav = h('nav', { class: 'nav', 'aria-label': 'Main' },
-    NAV.map(([href, screen, label]) => h('a', { href, 'data-screen': screen }, icon(NAV_ICON[screen] || screen), h('span', { text: label }))));
+    NAV.map(([href, screen, label]) => h('a', { href, 'data-screen': screen, onclick: onNavTap }, icon(NAV_ICON[screen] || screen), h('span', { text: label }))));
   const topbar = h('header', { class: 'topbar' },
     h('a', { class: 'brand', href: '#/', 'aria-label': 'Bonsai, feed' }, treeMark(28), h('span', { 'aria-hidden': 'true', text: 'bonsai' })),
     h('div', { class: 'topbar-end' },

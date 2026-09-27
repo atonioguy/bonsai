@@ -494,6 +494,37 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.waitForTimeout(300);
   check((await page.evaluate(() => window.scrollY)) > 600, 'scroll position restored');
 
+  // each bottom tab remembers where you were: a post opened from the feed is still open when you
+  // come back to Feed; tapping Feed while in Feed goes back to the feed
+  const nav = (tab) => page.click(`.nav a[data-screen="${tab}"]`);
+  await page.goto(BASE + '#/');
+  await page.waitForSelector('.entry');
+  await page.click('.entry[data-id="gen0"] .entry-title a');
+  await page.waitForSelector('.article-title');
+  await page.evaluate(() => window.scrollTo(0, 700));
+  await page.waitForTimeout(900);
+  await nav('collections');
+  await page.waitForSelector('.saved-tabs');
+  check((await page.getAttribute('.nav a[data-screen="collections"]', 'aria-current')) === 'page', 'Collections tab marked');
+  await nav('feed');
+  await page.waitForSelector('.article-title');
+  check((await page.evaluate(() => location.hash)) === '#/item/gen0', 'Feed tab brings back the open post');
+  await page.waitForTimeout(300);
+  check((await page.evaluate(() => scrollY)) > 400, 'at the same spot in the post');
+  check((await page.getAttribute('.nav a[data-screen="feed"]', 'aria-current')) === 'page', 'a post opened from the feed keeps Feed marked');
+  await nav('collections');
+  await page.waitForSelector('.saved-tabs');
+  await nav('feed');
+  await page.waitForSelector('.article-title');
+  await page.click('[aria-label="Back"]');
+  await page.waitForSelector('.entry');
+  check((await page.evaluate(() => location.hash)) === '#/', 'Back from that post goes to the feed, not Collections');
+  await page.click('.entry[data-id="gen0"] .entry-title a');
+  await page.waitForSelector('.article-title');
+  await nav('feed');
+  await page.waitForSelector('.entry');
+  check((await page.evaluate(() => location.hash)) === '#/', 'tapping Feed while in Feed goes back to the feed');
+
   // Recent drawer
   await page.click('[aria-label="Recently opened"]');
   await page.waitForSelector('dialog.drawer[open]');

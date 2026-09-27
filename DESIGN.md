@@ -269,6 +269,11 @@ decide, or act. Otherwise cut it.
 - **Structure:** a single reading column, 640px max. On phone the nav sits at
   the bottom; on desktop it sits in the top bar. No sidebars, competing columns
   or dashboard grids.
+- **Tabs remember:** like tabs in iPhone apps, each nav tab keeps where you
+  were in it. A post or book belongs to the tab it was opened from (that tab
+  stays marked), switching tabs and back returns to it, and Back goes back
+  within the tab. Tapping the tab you're in goes to its own screen, then to
+  the top.
 - **Start from the task:** ask "what is the user trying to do here?", not "what
   cards should this page have?".
 
