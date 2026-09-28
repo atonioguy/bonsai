@@ -68,6 +68,8 @@ engagement numbers, and no metadata rows.
   - **Library**: your books and sources.
   - **Collections**: your Reading list, your Bookmarks (in Folders), your
     Quotes and your Notes (every note you wrote under an article).
+  - **Add article**: in Collections (Reading list, Bookmarks), add a research
+    article by its link; its title, journal and abstract are looked up.
   - **Reading list**: articles to finish later. They come back in the feed
     until you remove them at the end of the article.
   - **Bookmark** / **Folder**: articles kept to find again.

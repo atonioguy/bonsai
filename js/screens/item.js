@@ -133,8 +133,7 @@ export async function render(main, app, id) {
           h('p', { class: 'hint', text: e.message || '' }),
           h('div', { class: 'article-actions' },
             browserUrl ? h('a', { class: 'btn btn-secondary', href: browserUrl, target: '_blank', rel: 'noopener noreferrer' }, 'Open in browser', icon('external', 18)) : null,
-            library ? h('a', { class: 'btn btn-secondary', href: library, target: '_blank', rel: 'noopener noreferrer' }, 'Open with library access', icon('external', 18)) : null),
-          library ? null : h('p', { class: 'hint' }, 'To open papers through your library, add your LibKey library ID in ', h('a', { href: '#/settings' }, 'Settings'), '.')));
+            library ? h('a', { class: 'btn btn-secondary', href: library, target: '_blank', rel: 'noopener noreferrer' }, 'Open with library access', icon('external', 18)) : null)));
       }
     } }, 'Load full article');
     loadArea.appendChild(loadBtn);

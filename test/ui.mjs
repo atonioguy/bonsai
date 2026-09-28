@@ -152,6 +152,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.route('https://www.ebi.ac.uk/**', (route) => {
     const u = decodeURIComponent(route.request().url());
     const headers = { 'access-control-allow-origin': '*' };
+    if (u.includes('/search?') && u.includes('10.1000/sample.123')) return route.fulfill({ headers, json: { resultList: { result: [{ pmid: '38000001', doi: '10.1000/sample.123', title: 'A sample added paper about <i>attention</i>', authorString: 'Doe J, Roe R.', journalInfo: { journal: { title: 'Sample Journal of Psychiatry' } }, firstPublicationDate: '2025-03-14', abstractText: '<h4>Background</h4>' + 'Sample abstract sentence. '.repeat(20) }] } } });
     if (u.includes('/search?')) return route.fulfill({ headers, json: { resultList: { result: u.includes('39797602') ? [{ pmid: '39797602', pmcid: 'PMC1111111' }] : [{ pmid: '41000322' }] } } });
     if (u.includes('PMC1111111/fullTextXML')) return route.fulfill({ headers, contentType: 'application/xml', body: JATS });
     return route.fulfill({ headers, status: 404, body: 'not found' });
@@ -587,6 +588,30 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.goto(BASE + '#/collections/list');
   await page.waitForSelector('.feed .entry');
   await shot('10b-reading-list');
+  // add a research article by its link: details looked up; any other link with a typed title
+  await page.click('button.add-article');
+  await page.waitForSelector('dialog.sheet[open] #add-link');
+  await page.fill('#add-link', 'https://doi.org/10.1000/sample.123');
+  await page.waitForSelector('#add-link-hint:has-text("A sample added paper about attention")');
+  await shot('10f-add-article');
+  await page.click('dialog.sheet button:has-text("Add")');
+  await page.waitForSelector('.feed .entry-title:has-text("A sample added paper")');
+  check((await page.textContent('.feed .entry:has-text("A sample added paper") .meta')).includes('Sample Journal of Psychiatry'), 'added paper shows its journal');
+  await page.click('.feed .entry-title a:has-text("A sample added paper")');
+  await page.waitForSelector('.article-title');
+  check((await page.textContent('.prose')).includes('Doe J, Roe R.') && (await page.textContent('.prose')).includes('Sample abstract sentence'), 'added paper opens with authors and abstract');
+  check(await page.$('button:has-text("Load full article")'), 'added paper can load its full text');
+  await page.goto(BASE + '#/collections/bookmarks');
+  await page.waitForSelector('button.add-article');
+  await page.click('button.add-article');
+  await page.fill('#add-link', 'https://example.org/a-page-about-something');
+  await page.click('dialog.sheet button:has-text("Add")');
+  await page.waitForSelector('#add-title:visible');
+  await page.fill('#add-title', 'My own title for a page');
+  await page.click('dialog.sheet button:has-text("Add")');
+  await page.waitForSelector('dialog.sheet[open]', { state: 'detached' });
+  await page.waitForSelector('.folder-row:has-text("All bookmarks")');
+  check((await page.textContent('.folder-row:has-text("All bookmarks") .meta')) === '2', 'a link with a typed title is bookmarked');
   await page.goto(BASE + '#/collections/bookmarks');
   await page.waitForSelector('.folder-row:has-text("Psych reads")');
   check((await page.textContent('.folder-row:has-text("Psych reads") .meta')) === '1', 'folder count');

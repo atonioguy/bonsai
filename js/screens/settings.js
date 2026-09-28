@@ -18,7 +18,6 @@ export async function render(main, app) {
   newsInFeed.addEventListener('change', async () => { app.settings = await db.saveSettings({ newsInFeed: newsInFeed.checked }); });
   const autoplay = h('input', { type: 'checkbox', role: 'switch', class: 'switch', id: 'autoplay-shorts', checked: autoplayOn(s) });
   autoplay.addEventListener('change', async () => { app.settings = await db.saveSettings({ autoplayShorts: autoplay.checked }); });
-  const libraryId = h('input', { class: 'input', id: 'library-id', type: 'text', inputmode: 'numeric', autocomplete: 'off', value: s.libraryId || '', 'aria-describedby': 'library-id-hint' });
 
   const form = h('form', { class: 'form', onsubmit: async (e) => {
     e.preventDefault();
@@ -26,7 +25,6 @@ export async function render(main, app) {
       feedUrl: feedUrl.value.trim().replace(/\/+$/, ''),
       sqUrl: sqUrl.value.trim().replace(/\/+$/, ''),
       sqKey: sqKey.value.trim(),
-      libraryId: libraryId.value.trim().replace(/\D/g, ''),
     });
     toast('Settings saved');
   } },
@@ -43,9 +41,6 @@ export async function render(main, app) {
         h('span', { class: 'label', text: 'Autoplay Shorts' }),
         h('span', { class: 'hint', text: 'Shorts play muted as you scroll. Off: tap a Short to play it.' })),
       autoplay)),
-  h('section', { class: 'fieldset', 'aria-labelledby': 'set-library' },
-    h('h2', { class: 'section-title', id: 'set-library', text: 'Library access' }),
-    field('library-id', 'LibKey library ID', libraryId, 'The number in your library’s LibKey links (libkey.io/libraries/NUMBER/…). Used for papers that aren’t open access.')),
   h('section', { class: 'fieldset', 'aria-labelledby': 'set-sq' },
     h('h2', { class: 'section-title', id: 'set-sq', text: 'Side Quest' }),
     field('sq-url', 'Worker URL', sqUrl, 'Side Quest’s aquamarine-data worker. Finished sessions are logged there as TickTick focus sessions.'),

@@ -4,7 +4,7 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.8.3)
+## Live state (v0.9.0)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
@@ -59,6 +59,10 @@ the "Local (circle back)" / "Next" notes).
 - v0.8.2: Collections → Notes (all your article notes in one place).
 - v0.8.3: tabs remember where you were (`stacks`/`section` in js/app.js);
   Back works within the tab.
+- v0.9.0: Collections → Add article (js/addarticle.js): research links looked
+  up via Europe PMC, else Crossref; posts get `sourceId: 'added'` and an id
+  from the PMID/DOI. The LibKey field was removed from Settings (the owner
+  asked for this instead); `libraryId` still works if it was saved.
 - Parked: "Look up" (in-app search panel), see PLAN.md.
 - v0.7.0/0.7.1, the rest (the session couldn't reach YouTube, so the Short
   player and the length lookups were only tested with stand-ins):

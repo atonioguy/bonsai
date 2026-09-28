@@ -233,6 +233,14 @@ takeaways.
     still open after a trip to Collections); tapping the tab you're in goes
     to its own screen, then to the top.
 
+18. ✅ v0.9.0: Collections → **Add article**: paste a PubMed, PMC or DOI link
+    (or a journal link with the DOI in it) and choose Reading list and/or
+    Bookmarks and a topic. Title, journal, date, authors and abstract come
+    from Europe PMC, else Crossref; any other link can be added with a typed
+    title. Added articles open like posts (Load full article works). The
+    LibKey field left Settings at the owner's request (a saved ID still
+    works).
+
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT
 Health & Wellness, Equality Arlington, UTA LGBTQ+ Program on events.uta.edu,

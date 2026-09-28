@@ -6,6 +6,7 @@ import { allPosts, savePost, folders, addFolder, renameFolder, deleteFolder, ope
 import { entryEl } from '../entries.js';
 import { loadLengths } from '../lengths.js';
 import { enablePostMenu } from '../postmenu.js';
+import { addArticleSheet } from '../addarticle.js';
 
 const SECTIONS = [['list', 'Reading list'], ['bookmarks', 'Bookmarks'], ['quotes', 'Quotes'], ['notes', 'Notes']];
 
@@ -35,10 +36,11 @@ async function renderList(main, app) {
   // Oldest first, like a queue: the same order as the Reading list tab in the feed.
   const posts = (await allPosts()).filter((p) => p.list).sort((a, b) => a.list.addedAt - b.list.addedAt);
   const opened = await openedMap();
+  main.append(addButton(main, app, { list: true }, 'list'));
   if (!posts.length) {
     main.append(h('div', { class: 'empty' },
       h('h2', { text: 'Reading list is empty' }),
-      h('p', { class: 'lead', text: 'Tap the list icon at the top of an article to add it. It comes back in your feed until you finish it.' })));
+      h('p', { class: 'lead', text: 'Tap the list icon at the top of an article to add it, or add a research article by its link. It comes back in your feed until you finish it.' })));
     return;
   }
   const ul = h('div', { class: 'feed' });
@@ -74,6 +76,7 @@ async function renderBookmarks(main, app) {
   } }, h('label', { class: 'visually-hidden', for: 'new-folder' }, 'New folder name'), name, h('button', { type: 'submit', class: 'btn btn-secondary' }, 'Add folder'));
 
   main.append(
+    addButton(main, app, { bookmark: true, list: false }, 'bookmarks'),
     h('ul', { class: 'list' },
       row('#/collections/folder/all', 'All bookmarks', marked.length),
       fs.map((f) => row('#/collections/folder/' + f.id, f.name, count(f.id)))),
@@ -131,6 +134,10 @@ async function renderFolder(main, app, id) {
     items.length ? ul : h('p', { class: 'lead', style: 'margin-top: var(--s-5)', text: inAll ? 'No bookmarks yet.' : 'Nothing in this folder yet.' }));
   return postMenu(ul, items, () => rerender(main, app, 'folder', id));
 }
+
+// Add a research article by its link (js/addarticle.js).
+const addButton = (main, app, boxes, tab) => h('button', { type: 'button', class: 'btn btn-secondary add-article',
+  onclick: () => addArticleSheet(app, { ...boxes, onAdded: () => rerender(main, app, tab) }) }, icon('plus', 18), 'Add article');
 
 // Collections list posts the same way the feed does, with one quiet remove button.
 function postRow(p, extra, opened, removeLabel, onRemove) {

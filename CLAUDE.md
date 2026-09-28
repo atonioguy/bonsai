@@ -30,6 +30,8 @@ setup steps plainly.
 | `js/posts.js` | Per-article state on the device: snapshot, opened, scroll, bookmark + folders, reading list, reaction, notes; opened/seen indexes |
 | `js/prefs.js` | Theme + reading text size (localStorage, applied before paint by `index.html`) |
 | `js/fulltext.js` | Europe PMC lookup + JATS → HTML for "Load full article" |
+| `js/addarticle.js` | Collections → Add article: a research link → a saved post (Europe PMC / Crossref) |
+| `js/shorts.js`, `js/pull.js`, `js/lengths.js` | Shorts played in the feed; pull to refresh; video lengths via the worker's `/length` |
 | `js/readtools.js`, `js/recent.js` | The Aa popover; the Recently opened drawer |
 | `js/entries.js`, `js/postmenu.js`, `js/bookmark.js` | Post cards (feed, reading list, folders); long-press/right-click preview + actions; the bookmark folder sheet |
 | `js/jump.js` | The movable jump-to-bottom / back-to-top button |

@@ -370,6 +370,10 @@ audio { width: 100%; }
 
 /* ---------- forms ---------- */
 .form { display: flex; flex-direction: column; gap: var(--s-7); }
+.sheet-form { gap: var(--s-5); }
+.plain-fieldset { display: flex; flex-direction: column; margin: 0; padding: 0; border: 0; min-width: 0; }
+.plain-fieldset legend { padding: 0; margin-bottom: var(--s-1); }
+.add-article { margin-bottom: var(--s-5); }
 .fieldset { display: flex; flex-direction: column; gap: var(--s-4); }
 .fieldset .section-title { margin-bottom: 0; }
 .inline-field { display: flex; gap: var(--s-2); }

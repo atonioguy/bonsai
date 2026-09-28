@@ -9,7 +9,7 @@ const EPMC = 'https://www.ebi.ac.uk/europepmc/webservices/rest/';
 export class FullTextError extends Error {}
 
 // Direct first; if the browser blocks it, go through the feed server's /epmc relay.
-async function epmc(path, settings) {
+export async function epmc(path, settings) {
   try {
     const r = await fetch(EPMC + path);
     if (r.ok || r.status === 404) return r;
