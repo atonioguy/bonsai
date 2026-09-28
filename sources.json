@@ -442,6 +442,120 @@
       "verified": false
     },
     {
+      "id": "bmc-psychiatry",
+      "topic": "mind",
+      "tags": ["Psychiatry"],
+      "name": "BMC Psychiatry (open access)",
+      "kind": "research",
+      "site": "https://bmcpsychiatry.biomedcentral.com/",
+      "feed": "https://bmcpsychiatry.biomedcentral.com/articles/most-recent/rss.xml",
+      "note": "Every psychiatric condition; free full text",
+      "verified": false
+    },
+    {
+      "id": "molecular-autism",
+      "topic": "mind",
+      "tags": ["Autism"],
+      "name": "Molecular Autism (open access)",
+      "kind": "research",
+      "site": "https://molecularautism.biomedcentral.com/",
+      "feed": "https://molecularautism.biomedcentral.com/articles/most-recent/rss.xml",
+      "verified": false
+    },
+    {
+      "id": "world-psychiatry",
+      "topic": "mind",
+      "tags": ["Psychiatry"],
+      "name": "World Psychiatry",
+      "kind": "research",
+      "site": "https://onlinelibrary.wiley.com/journal/20515545",
+      "feed": "https://onlinelibrary.wiley.com/feed/20515545/most-recent",
+      "note": "The World Psychiatric Association journal; free to read",
+      "verified": false
+    },
+    {
+      "id": "lancet-psychiatry",
+      "topic": "mind",
+      "tags": ["Psychiatry"],
+      "name": "The Lancet Psychiatry",
+      "kind": "research",
+      "site": "https://www.thelancet.com/journals/lanpsy/home",
+      "feed": "https://www.thelancet.com/rssfeed/lanpsy_online.xml",
+      "verified": false
+    },
+    {
+      "id": "jama-psychiatry",
+      "topic": "mind",
+      "tags": ["Psychiatry"],
+      "name": "JAMA Psychiatry",
+      "kind": "research",
+      "site": "https://jamanetwork.com/journals/jamapsychiatry",
+      "feed": "https://jamanetwork.com/rss/site_16/72.xml",
+      "verified": false
+    },
+    {
+      "id": "psychiatric-times",
+      "topic": "mind",
+      "tags": ["Psychiatry"],
+      "name": "Psychiatric Times",
+      "kind": "news",
+      "site": "https://www.psychiatrictimes.com/",
+      "feed": "https://www.psychiatrictimes.com/rss",
+      "note": "Clinical news across psychiatry, written for clinicians",
+      "verified": false
+    },
+    {
+      "id": "osmosis",
+      "topic": "mind",
+      "tags": ["Psychiatry"],
+      "name": "Osmosis from Elsevier",
+      "kind": "video",
+      "site": "https://www.youtube.com/@osmosis",
+      "feed": "youtube:@osmosis",
+      "note": "Medical education team: many conditions, many presenters",
+      "verified": false
+    },
+    {
+      "id": "big-think",
+      "topic": "psychology",
+      "name": "Big Think",
+      "kind": "video",
+      "site": "https://www.youtube.com/@bigthink",
+      "feed": "youtube:@bigthink",
+      "note": "Many experts, not one host",
+      "verified": false
+    },
+    {
+      "id": "royal-institution",
+      "topic": "science",
+      "name": "The Royal Institution",
+      "kind": "video",
+      "site": "https://www.youtube.com/@TheRoyalInstitution",
+      "feed": "youtube:@TheRoyalInstitution",
+      "note": "Lectures by many scientists",
+      "verified": false
+    },
+    {
+      "id": "history-hit",
+      "topic": "history",
+      "name": "History Hit",
+      "kind": "video",
+      "site": "https://www.youtube.com/@HistoryHit",
+      "feed": "youtube:@HistoryHit",
+      "note": "Many historians and presenters",
+      "verified": false
+    },
+    {
+      "id": "mayo-clinic",
+      "topic": "health",
+      "name": "Mayo Clinic",
+      "kind": "video",
+      "site": "https://www.youtube.com/@mayoclinic",
+      "feed": "youtube:@mayoclinic",
+      "note": "Many clinicians",
+      "verified": false
+    },
+    {
       "id": "healthygamergg",
       "topic": "self-help",
       "name": "HealthyGamerGG",

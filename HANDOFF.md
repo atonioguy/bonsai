@@ -4,7 +4,7 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.9.1)
+## Live state (v0.10.0)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
@@ -59,10 +59,16 @@ the "Local (circle back)" / "Next" notes).
 - v0.8.2: Collections → Notes (all your article notes in one place).
 - v0.8.3: tabs remember where you were (`stacks`/`section` in js/app.js);
   Back works within the tab.
-- **Worker re-paste needed (v0.9.1):** fewer KV writes (~250 a day instead of
+- Worker v0.9.1 (re-pasted by the owner): fewer KV writes (~250 a day instead of
   ~600 plus app refreshes). Cloudflare had sent the 50% daily KV warning and
   the owner saw no new posts after it (likely the 1,000 writes a day used up).
   `/health` now shows `writesPerDay`, `failing` and `overdue`.
+- v0.10.0: feed order is newest arrival first (`kv/arrived`), max 3 new per
+  source per refresh, short "Earlier" (3 days, 20 posts), 30-day cutoff
+  (`FEED_SHAPE` in js/logic.js). 11 new sources (psychiatry journals,
+  Psychiatric Times, multi-expert YouTube channels); none verified from a
+  session, so check Library for any marked not loading. Owner said the
+  worker re-paste for v0.9.1 is done.
 - v0.9.0: Collections → Add article (js/addarticle.js): research links looked
   up via Europe PMC, else Crossref; posts get `sourceId: 'added'` and an id
   from the PMID/DOI. The LibKey field was removed from Settings (the owner

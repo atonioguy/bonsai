@@ -72,6 +72,54 @@ export function splitNew(entries, seen) {
   return { fresh, older };
 }
 
+// ---------- keeping the feed short and varied ----------
+// Like other feeds, old posts drop away: "Earlier" keeps only posts seen in the last few days (at most
+// a screenful or two), and anything that arrived over a month ago leaves the feed (saved posts stay in
+// Collections). No one source takes over a refresh: its extra new posts wait for the next one.
+export const FEED_SHAPE = { perSource: 3, earlierDays: 3, earlierMax: 20, maxAgeDays: 30 };
+const DAY_MS = 86_400_000;
+
+export const firstSeen = (seen, i) => Math.min(...[i.id, ...(i.dupIds || [])].map((d) => (seen && seen[d]) || Infinity));
+
+/** Items that arrived too long ago to be in the feed at all. */
+export function tooOld(i, arrived, now = Date.now(), shape = FEED_SHAPE) {
+  const at = arrived && arrived[i.id];
+  return Boolean(at) && now - at > shape.maxAgeDays * DAY_MS;
+}
+
+/** At most `n` per source, in order; returns [kept, leftOver]. */
+export function capPerSource(items, n = FEED_SHAPE.perSource) {
+  const count = {}, kept = [], left = [];
+  for (const i of items) {
+    const k = i.sourceId;
+    if ((count[k] || 0) < n) { count[k] = (count[k] || 0) + 1; kept.push(i); } else left.push(i);
+  }
+  return [kept, left];
+}
+
+/** Split a mixed pool into what a fresh feed shows: capped new posts, then a short "Earlier". */
+export function shapeFeed(entries, seen, { now = Date.now(), shape = FEED_SHAPE } = {}) {
+  const { fresh, older } = splitNew(entries, seen);
+  const [kept] = capPerSource(fresh, shape.perSource);
+  const recent = older.filter((i) => now - firstSeen(seen, i) <= shape.earlierDays * DAY_MS).slice(0, shape.earlierMax);
+  return { fresh: kept, older: recent };
+}
+
+// Remember when each item first reached this device; forget ones long gone from the feed.
+export function stampArrivals(arrived = {}, items = [], now = Date.now()) {
+  const next = { ...arrived };
+  let changed = false;
+  const here = new Set();
+  for (const i of items) {
+    here.add(i.id);
+    if (!next[i.id]) { next[i.id] = now; changed = true; }
+  }
+  for (const [id, t] of Object.entries(next)) {
+    if (!here.has(id) && now - t > 60 * DAY_MS) { delete next[id]; changed = true; }
+  }
+  return { arrived: next, changed };
+}
+
 // ---------- reading sessions ----------
 // Timed sessions are a challenge: only a finished one counts. A free read counts whatever
 // was read, and goes to Side Quest as a stopwatch record (Side Quest: 1 tomato per 25 min,
@@ -208,10 +256,12 @@ export function formatLength(sec) {
  * @param {Array} items  feed items
  * @param {{topic?:string, muted?:Set<string>, limit?:number}} opts
  */
-export function mixFeed(items, { topic = 'all', muted = new Set(), limit = 80 } = {}) {
+export function mixFeed(items, { topic = 'all', muted = new Set(), limit = 80, arrived = null } = {}) {
+  // Newest to arrive in Bonsai first (arrived: id → time first fetched), then newest published.
+  const at = (i) => (arrived && arrived[i.id]) || 0;
   const pool = items
     .filter((i) => (topic === 'all' || hasTopic(i, topic)) && !isMuted(i, muted))
-    .sort((a, b) => (b.published || '').localeCompare(a.published || ''));
+    .sort((a, b) => at(b) - at(a) || (b.published || '').localeCompare(a.published || ''));
   const out = [];
   while (pool.length && out.length < limit) {
     const prev = out.length ? out[out.length - 1].sourceId : null;

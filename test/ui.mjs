@@ -554,6 +554,8 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.waitForSelector('.feed-end .meta:has-text("No new posts")');
   // pull down at the top: a new order, with the newest first
   FEED.items.push({ ...FEED.items.find((x) => x.id === 'gen8'), id: `pulled${w}`, sourceId: 'gen-1', topic: 'tao', title: 'Pulled sample ' + w, url: `https://example.org/pulled/${w}`, published: new Date().toISOString() });
+  // published 10 days ago but only now reaching Bonsai: it goes on top too (newest arrival first)
+  FEED.items.push({ ...FEED.items.find((x) => x.id === 'gen8'), id: `late${w}`, sourceId: 'gen-2', topic: 'mind', title: 'Late arrival ' + w, url: `https://example.org/late/${w}`, published: iso(240) });
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.evaluate(() => {
     const t = (y) => new Touch({ identifier: 1, target: document.body, clientX: 150, clientY: y });
@@ -564,6 +566,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   });
   await page.waitForFunction((w) => document.querySelector('.entry-title')?.textContent === 'Pulled sample ' + w, w);
   check(await page.$('.earlier:has-text("Earlier")'), 'posts already seen go below "Earlier"');
+  check((await page.$$eval('.feed .entry .entry-title', (t) => t.map((x) => x.textContent)))[1] === 'Late arrival ' + w, 'an old post that just arrived is near the top');
   await page.click('.tab[data-topic="mind"]');
   check((await placeOf()) === mindLeft, 'a pull on All leaves Mind’s place alone');
   await page.click('.tab[data-topic="all"]');

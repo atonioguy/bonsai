@@ -112,6 +112,11 @@ paste it into `sources.json` (or send it to Claude).
 - Trans and gender-affirming care:
   `(transgender[tiab] OR "gender-affirming"[tiab] OR "gender diverse"[tiab]) AND free full text[sb]`
 
+- Optional, for psychiatry beyond ADHD/BPD (the owner's interest in the
+  field):
+  - Autism: `(autism[tiab] OR autistic[tiab]) AND (review[pt] OR free full text[sb])`
+  - The wider field: `(schizophrenia[tiab] OR psychosis[tiab] OR bipolar[tiab] OR "obsessive-compulsive"[tiab] OR PTSD[tiab] OR "eating disorder*"[tiab] OR "substance use"[tiab]) AND "systematic review"[pt] AND free full text[sb]`
+
 If a feed turns out too busy or too quiet, adjust its query.
 
 ## Look and feel
@@ -246,6 +251,15 @@ takeaways.
     longer between checks (2 → 4 → 8 → 12 h), pulls and Refresh only read,
     `/refresh` stopped writing a timestamp, and the feed says when the server
     hasn't saved anything for 3 h (limit used up or schedule stopped).
+
+20. ✅ v0.10.0: newest *arrival* first (the app stamps when each post first
+    reached it); at most 3 new posts per source per refresh; "Earlier" keeps
+    only posts seen in the last 3 days (max 20); arrivals over 30 days old
+    leave the feed. New sources (all `verified: false`): psychiatry journals
+    across the field (BMC Psychiatry, Molecular Autism, World Psychiatry,
+    The Lancet Psychiatry, JAMA Psychiatry), Psychiatric Times, and YouTube
+    channels with many experts instead of one host (Osmosis, Big Think, The
+    Royal Institution, History Hit, Mayo Clinic).
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT

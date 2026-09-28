@@ -95,7 +95,12 @@ engagement numbers, and no metadata rows.
     Podcast. The same article from two feeds is one post with both feeds' tags.
   - **Refresh**: new posts come in only when you ask. Pull down at the top for
     a new order (new posts first), or tap Refresh at the end to add them below.
-    Otherwise the feed keeps its order and your place. Each topic tab keeps
+    Otherwise the feed keeps its order and your place. A fresh order puts the
+    newest arrivals on top (when a post reached Bonsai, not when it was
+    published), at most 3 new posts per source (the rest come with the next
+    refresh), then a short "Earlier": posts seen in the last 3 days, at most
+    20. Posts that arrived over 30 days ago leave the feed; saved ones stay in
+    Collections. Each topic tab keeps
     its own order and place (a pull refreshes only the tab you're on); read,
     hidden and saved state is shared by all tabs.
   - **Hidden post**: a post you hid, collapsed to one line with **Show**.

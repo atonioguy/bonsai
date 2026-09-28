@@ -257,3 +257,33 @@ test('serverHealth: quiet when nothing was saved for 3 h (limit used up or sched
   assert.equal(serverHealth(st(4), 5, now).quiet, false, 'sources still missing: that is "stalled", not "quiet"');
   assert.equal(new Date(limitResetAt(Date.UTC(2026, 8, 27, 19, 43))).toISOString(), '2026-09-28T00:00:00.000Z');
 });
+
+import { shapeFeed, capPerSource, tooOld, stampArrivals, FEED_SHAPE } from '../js/logic.js';
+
+test('mixFeed: newest to arrive first, then newest published', () => {
+  const items = [item('old-but-new', 'a', 200), item('recent', 'b', 1), item('also', 'c', 2)];
+  const arrived = { 'old-but-new': T0, recent: T0 - DAY, also: T0 - DAY };
+  assert.deepEqual(mixFeed(items, { arrived }).map((i) => i.id), ['old-but-new', 'recent', 'also']);
+});
+
+test('shapeFeed: a few new per source; a short "Earlier" of recently seen posts', () => {
+  const news = Array.from({ length: 5 }, (_, n) => item('a' + n, 'a', n));
+  const other = [item('b0', 'b', 1)];
+  const seenOld = Array.from({ length: 30 }, (_, n) => item('s' + n, 'c' + (n % 10), 10 + n));
+  const seen = Object.fromEntries(seenOld.map((i, n) => [i.id, n < 25 ? T0 - DAY : T0 - 5 * DAY]));
+  const { fresh, older } = shapeFeed([...news, ...other, ...seenOld], seen, { now: T0 });
+  assert.deepEqual(fresh.map((i) => i.id), ['a0', 'a1', 'a2', 'b0'], `at most ${FEED_SHAPE.perSource} new from one source`);
+  assert.equal(older.length, FEED_SHAPE.earlierMax, 'Earlier is capped');
+  assert.ok(older.every((i) => seen[i.id] === T0 - DAY), 'only posts seen in the last few days');
+  assert.deepEqual(capPerSource(news, 2).map((l) => l.length), [2, 3]);
+});
+
+test('arrivals: stamped once, forgotten after they leave; a month-old arrival leaves the feed', () => {
+  let { arrived, changed } = stampArrivals({}, [{ id: 'x' }], T0);
+  assert.equal(changed, true);
+  assert.equal(stampArrivals(arrived, [{ id: 'x' }], T0 + DAY).changed, false, 'kept its first time');
+  assert.equal(tooOld({ id: 'x' }, arrived, T0 + 31 * DAY), true);
+  assert.equal(tooOld({ id: 'x' }, arrived, T0 + 29 * DAY), false);
+  ({ arrived } = stampArrivals(arrived, [], T0 + 61 * DAY));
+  assert.equal(arrived.x, undefined, 'forgotten once gone from the feed for 2 months');
+});

@@ -1,7 +1,7 @@
 import * as db from '../db.js';
 import {
   mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, mergeDuplicates, retopic, SESSION_CHOICES,
-  dueListed, afterListShown, newCounts, splitNew, pickBrief, dayKey, BRIEF_SIZE, serverHealth, limitResetAt, topicsOf, isMuted, seenOf,
+  dueListed, afterListShown, newCounts, shapeFeed, capPerSource, tooOld, stampArrivals, pickBrief, dayKey, BRIEF_SIZE, serverHealth, limitResetAt, topicsOf, isMuted, seenOf,
 } from '../logic.js';
 import { h, enso, icon, toast } from '../ui.js';
 import { currentBook, percent } from '../books.js';
@@ -73,6 +73,16 @@ export async function render(main, app) {
   let seen = await seenMap();
   let loading = false, error = '', note = '';
 
+  // When each post first reached this device: the feed's order is newest arrival first.
+  let arrived = (await db.get('kv', 'arrived')) || {};
+  async function stamp() {
+    if (!cache) return;
+    const r = stampArrivals(arrived, cache.items);
+    arrived = r.arrived;
+    if (r.changed) await db.put('kv', 'arrived', arrived);
+  }
+  await stamp();
+
   // Every id a post goes by (a merged post keeps the other feed's id too), for lookups by id.
   let byId = new Map();
   const index = () => {
@@ -88,7 +98,8 @@ export async function render(main, app) {
   async function initSeen() {
     if (seen || !cache) return;
     seen = {};
-    for (const i of cache.items) seen[i.id] = 1;
+    const now = Date.now();
+    for (const i of cache.items) seen[i.id] = now;
     await markSeen(cache.items.map((i) => i.id));
   }
 
@@ -96,7 +107,8 @@ export async function render(main, app) {
   const briefTopics = new Set(app.config.topics.filter((t) => t.brief).map((t) => t.id));
   const positive = new Set(app.config.sources.filter((x) => x.positive).map((x) => x.id));
   const inAll = (items) => (s.newsInFeed ? items : items.filter((i) => !topicsOf(i).every((t) => briefTopics.has(t))));
-  const pool = (topic) => (cache ? mixFeed(topic === 'all' ? inAll(cache.items) : cache.items, { topic, muted }) : []);
+  // Newest arrivals first; posts that arrived over a month ago have left the feed.
+  const pool = (topic) => (cache ? mixFeed(topic === 'all' ? inAll(cache.items) : cache.items, { topic, muted, arrived, limit: 200 }).filter((i) => !tooOld(i, arrived)) : []);
 
   // Today's brief: picked once a day (so it doesn't reshuffle), refilled if it came up short.
   async function brief() {
@@ -154,7 +166,7 @@ export async function render(main, app) {
 
   // A fresh order for a tab: new posts first, then an "Earlier" line and the ones already seen.
   function buildView(topic) {
-    const { fresh, older } = splitNew(pool(topic), seen);
+    const { fresh, older } = shapeFeed(pool(topic), seen);
     const entries = [...fresh, ...older];
     const all = topic === 'all'; // the book card and your own cards belong to the main mix only
     const cards = composeFeed(entries, { book: all ? book : null, throwbacks: all ? throwbacks : [], listed: all ? listed : [] });
@@ -274,12 +286,14 @@ export async function render(main, app) {
 
   // ---------- the end of the list: status and Refresh ----------
   // Posts the server has that this tab isn't showing yet (they come in when you refresh).
-  function waiting() {
+  // (At most a few per source, like a fresh order: the rest come with the refresh after.)
+  function notShown() {
     const view = views()[app.topic];
-    if (!view || app.topic === '_list') return 0;
+    if (!view || app.topic === '_list') return [];
     const inView = new Set(view.keys.filter((k) => k.startsWith('e:')).map((k) => k.slice(2)));
-    return pool(app.topic).filter((i) => !seenOf(seen, i) && ![i.id, ...(i.dupIds || [])].some((d) => inView.has(d))).length;
+    return capPerSource(pool(app.topic).filter((i) => !seenOf(seen, i) && ![i.id, ...(i.dupIds || [])].some((d) => inView.has(d))))[0];
   }
+  const waiting = () => notShown().length;
 
   function endEl() {
     const el = endContent(list.querySelectorAll('.entry, .entry-hidden').length);
@@ -356,6 +370,7 @@ export async function render(main, app) {
       cache = { ...normalizeFeed(await r.json()), fetchedAt: Date.now() };
       await db.put('kv', 'feed', cache);
       cache = { ...cache, items: retopic(cache.items, app.config.sources) };
+      await stamp();
       index();
       await initSeen();
       briefItems = await brief();
@@ -390,7 +405,7 @@ export async function render(main, app) {
     const view = views()[app.topic];
     if (!view) { draw(); return; }
     const inView = new Set(view.keys.filter((k) => k.startsWith('e:')).map((k) => k.slice(2)));
-    const added = pool(app.topic).filter((i) => !seenOf(seen, i) && ![i.id, ...(i.dupIds || [])].some((d) => inView.has(d)));
+    const added = notShown();
     if (!added.length) { note = 'No new posts · updated just now'; paintEnd(); return; }
     const mark = { type: 'new', at: Date.now() };
     view.keys.push(keyOf(mark), ...added.map((i) => 'e:' + i.id));
