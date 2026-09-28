@@ -1,7 +1,7 @@
 import * as db from '../db.js';
 import {
   mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, mergeDuplicates, retopic, SESSION_CHOICES,
-  dueListed, afterListShown, newCounts, shapeFeed, capPerSource, tooOld, stampArrivals, pickBrief, dayKey, BRIEF_SIZE, serverHealth, limitResetAt, topicsOf, isMuted, seenOf,
+  dueListed, afterListShown, newCounts, shapeFeed, capPerSource, tooOld, stampArrivals, pickBrief, dayKey, BRIEF_SIZE, serverHealth, minEveryOf, limitResetAt, topicsOf, isMuted, seenOf,
 } from '../logic.js';
 import { h, enso, icon, toast } from '../ui.js';
 import { currentBook, percent } from '../books.js';
@@ -324,10 +324,10 @@ export async function render(main, app) {
     }
     // While the feed server is still doing its first pass, say how far along it is; if it has
     // stopped saving new posts, say so instead of looking up to date.
-    const health = serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length, cache.fetchedAt || Date.now());
+    const health = serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length, cache.fetchedAt || Date.now(), minEveryOf(app.config));
     const resets = new Date(limitResetAt()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     const filling = health.quiet
-      ? h('p', { class: 'meta warn' }, `The feed server hasn’t saved anything new since ${relTime(health.newest)}. Cloudflare’s free daily limit may be used up (it resets at ${resets}), or its schedule has stopped (see Library).`)
+      ? h('p', { class: 'meta warn' }, `The feed server is behind: ${health.overdue} sources are overdue for a check (last save ${relTime(health.newest)}). Cloudflare’s free daily limit may be used up (it resets at ${resets}), or its schedule has stopped (see Library).`)
       : health.expected && health.loaded < health.expected
         ? h('p', { class: 'meta' + (health.stalled ? ' warn' : '') }, health.stalled
           ? `${health.loaded} of ${health.expected} sources loaded. The feed server’s schedule doesn’t seem to be running, so Bonsai is loading them while the app is open. To fix it, see Library → Sources.`

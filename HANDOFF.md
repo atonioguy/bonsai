@@ -4,26 +4,28 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.10.0)
+## Live state (v0.10.1)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
   its Cron Trigger is running (the owner confirmed sources now load on their
-  own). The cron is `*/5 * * * *` (the owner confirmed the change from
-  `*/2`, made to stay under the KV list limit). `/health` shows whether it's
-  running.
-- **Worker re-paste needed (v0.7.1):** `worker/bonsai-feeds.js` adds
-  `GET /length?v=ID`. Until the owner re-pastes it (Edit code → Deploy),
-  videos show no length. Everything else works without it. The owner said
-  they hadn't re-pasted the v0.7.0 worker either, which is why no lengths
-  showed. The v0.7.0 approach (a cron lookup stored in KV) was replaced.
+  own). The cron is `*/5 * * * *`. `/health` shows whether it's running.
+- **Worker re-paste needed (v0.10.1):** News checked every 6 h at most
+  (`"every"` on a topic/source in sources.json). The owner got a second 50%
+  KV email on Sep 28 at 4:26 PM Central, most likely from writes made before
+  the v0.9.1 re-paste took full effect (the adaptive waits only lengthen after
+  a source's second check). If a third arrives after this re-paste, ask which
+  KV operation it is (Cloudflare → Workers & Pages → KV → Metrics: reads,
+  writes or lists) and what `/health` shows for `writesPerDay`.
+- The deployed worker otherwise matches the repo (video lengths via
+  `/length`, adaptive waits from v0.9.1).
 
-## How the feed works now (v0.7.x)
+## How the feed works now
 
 - The feed keeps a saved order per tab plus the post at the top of the screen
   (IndexedDB `kv/feedView`). It survives screen changes and app restarts.
-  New posts come in only by pulling down at the top (a new order, new posts
-  first, every tab rebuilt) or by tapping Refresh at the end (new posts
+  New posts come in only by pulling down at the top (a new order for that
+  tab, newest arrivals first) or by tapping Refresh at the end (new posts
   appended below a "New" line). Background checks only update the cache and
   the status line at the end.
 - Duplicates (same PubMed id, DOI in the link, YouTube id, or cleaned link)

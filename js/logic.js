@@ -438,17 +438,27 @@ export function pickBrief(items, { topic = 'news', positive = new Set(), now = D
 
 // ---------- feed server health (from /feed status) ----------
 // Its schedule refreshes whatever is due, so nothing newer than ~20 min while sources are still
-// missing means the schedule isn't running. Once loaded, news sources are saved every 2 h, so
-// nothing saved for 3 h (as of when the feed was fetched) means the server can't save: its schedule
-// stopped, or Cloudflare's free daily limit is used up.
-export const QUIET_AFTER = 3 * 3600_000;
-export function serverHealth(status = [], expected = 0, now = Date.now()) {
+// missing means the schedule isn't running. Once loaded, each source says how long it waits between
+// checks (`every`, 2–12 h, or its topic's longer minimum). Several sources over an hour past their
+// next check (as of when the feed was fetched) means the server can't save: its schedule stopped,
+// or Cloudflare's free daily limit is used up. A quiet night with nothing new isn't that.
+export const OVERDUE_BY = 3600_000;
+
+// Each source's minimum wait (ms) from sources.json ("every" in hours, on the source or its topic).
+export function minEveryOf(config = {}) {
+  const topic = new Map((config.topics || []).map((t) => [t.id, Number(t.every) || 0]));
+  return new Map((config.sources || []).map((s) => [s.id, (Number(s.every) || topic.get(s.topic) || 0) * 3600_000]));
+}
+
+export function serverHealth(status = [], expected = 0, now = Date.now(), minEvery = new Map()) {
   const times = status.map((x) => x.fetchedAt || 0).filter(Boolean);
   const newest = times.length ? Math.max(...times) : 0;
   const loaded = status.length;
   const stalled = loaded < expected && (!newest || now - newest > 20 * 60_000);
-  const quiet = !stalled && Boolean(newest) && now - newest > QUIET_AFTER;
-  return { loaded, expected, newest, stalled, quiet };
+  const wait = (x) => Math.max(minEvery.get(x.id) || 0, x.every || 2 * 3600_000);
+  const overdue = status.filter((x) => x.fetchedAt && now - x.fetchedAt > wait(x) + OVERDUE_BY).length;
+  const quiet = !stalled && loaded > 0 && overdue >= Math.min(3, loaded);
+  return { loaded, expected, newest, stalled, quiet, overdue };
 }
 
 // Cloudflare's daily limits reset at midnight UTC.

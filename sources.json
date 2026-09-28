@@ -1,5 +1,5 @@
 {
-  "_note": "Sources for Bonsai. 'verified: false' = the URL hasn't been opened from here; the feed worker checks each one and Library shows 'Not loading' with the reason. 'hideLocked' drops paid-only posts. 'positive' marks good-news sources (one always makes the daily brief). 'youtube:@handle' feeds are resolved to the channel's video feed by the worker. Topics with 'brief: true' stay out of the main feed unless you turn them on (Settings). 'tags' are the labels a source's posts get in the app (default: the topic's name).",
+  "_note": "Sources for Bonsai. 'verified: false' = the URL hasn't been opened from here; the feed worker checks each one and Library shows 'Not loading' with the reason. 'hideLocked' drops paid-only posts. 'positive' marks good-news sources (one always makes the daily brief). 'youtube:@handle' feeds are resolved to the channel's video feed by the worker. Topics with 'brief: true' stay out of the main feed unless you turn them on (Settings). 'tags' are the labels a source's posts get in the app (default: the topic's name). 'every' (hours, on a topic or a source) is the least time between the feed server's checks; News only feeds the daily brief, so 6.",
   "topics": [
     {
       "id": "mind",
@@ -55,7 +55,8 @@
       "id": "news",
       "name": "News",
       "about": "Daily brief: world and national news, plus good news",
-      "brief": true
+      "brief": true,
+      "every": 6
     },
     {
       "id": "local",

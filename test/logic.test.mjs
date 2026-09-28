@@ -249,12 +249,15 @@ test('retopic: topics follow the current sources.json', () => {
 
 import { limitResetAt } from '../js/logic.js';
 
-test('serverHealth: quiet when nothing was saved for 3 h (limit used up or schedule stopped)', () => {
-  const now = T0;
-  const st = (hAgo) => [{ id: 'a', fetchedAt: now - hAgo * 3600e3 }, { id: 'b', fetchedAt: now - 5 * 3600e3 }];
-  assert.equal(serverHealth(st(1), 2, now).quiet, false);
-  assert.equal(serverHealth(st(4), 2, now).quiet, true);
-  assert.equal(serverHealth(st(4), 5, now).quiet, false, 'sources still missing: that is "stalled", not "quiet"');
+test('serverHealth: quiet when several sources are over an hour past their next check', () => {
+  const now = T0, H = 3600e3;
+  const st = (...ago) => ago.map((h, n) => ({ id: 's' + n, fetchedAt: now - h * H, every: 2 * H }));
+  assert.equal(serverHealth(st(1, 1, 1), 3, now).quiet, false);
+  assert.equal(serverHealth(st(4, 4, 1), 3, now).quiet, false, 'two overdue of three: not yet');
+  assert.equal(serverHealth(st(4, 4, 4), 3, now).quiet, true);
+  const quietNight = [{ id: 'a', fetchedAt: now - 5 * H, every: 8 * H }, { id: 'b', fetchedAt: now - 7 * H, every: 12 * H }, { id: 'n', fetchedAt: now - 4 * H, every: 2 * H }];
+  assert.equal(serverHealth(quietNight, 3, now, new Map([['n', 6 * H]])).quiet, false, 'long waits and News every 6 h are not overdue');
+  assert.equal(serverHealth(st(4, 4, 4), 5, now).quiet, false, 'sources still missing: that is "stalled", not "quiet"');
   assert.equal(new Date(limitResetAt(Date.UTC(2026, 8, 27, 19, 43))).toISOString(), '2026-09-28T00:00:00.000Z');
 });
 

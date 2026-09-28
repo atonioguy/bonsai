@@ -8,9 +8,11 @@ feeds.
 **How it works:** every 5 minutes it refreshes every source that's due, a few
 at a time within a size budget so each run stays inside the free plan's CPU
 limit. A source is due 2 hours after a check that found something new; each
-check that finds nothing new doubles its wait (4, 8, then 12 hours). News sites
-stay at 2 hours, quiet channels settle at 12. That keeps KV writes around 250 a
-day and lists around 290 (the free plan allows 1,000 of each). The app only
+check that finds nothing new doubles its wait (4, 8, then 12 hours). Quiet
+channels settle at 12 hours. A topic or source in `sources.json` can set a
+longer minimum with `"every"` (hours): News only feeds the once-a-day brief, so
+it's checked every 6. That keeps KV writes around 200 a day and lists around 290
+(the free plan allows 1,000 of each). The app only
 reads; it asks the worker to refresh only if the schedule has stopped.
 `GET /feed` returns everything stored.
 

@@ -239,3 +239,23 @@ test('/refresh writes nothing of its own, and a failed save stops the run quietl
   env.FEEDS.put = async () => { throw new Error('KV put() limit exceeded for the day.'); };
   await run(env); // must not throw
 });
+
+test('a topic can ask for a longer minimum between checks (News: every 6 h)', async () => {
+  const env = { FEEDS: memKV() };
+  const saved = globalThis.fetch;
+  globalThis.fetch = async (u) => {
+    u = String(u);
+    if (u.endsWith('sources.json')) return new Response(JSON.stringify({ topics: [{ id: 'news', every: 6 }], sources: [{ id: 'n', name: 'N', topic: 'news', feed: 'https://n.test/' }, { id: 'a', name: 'A', topic: 'mind', feed: 'https://a.test/' }] }));
+    return new Response(fx('wordpress.xml'));
+  };
+  await run(env);
+  const t0 = { n: env.FEEDS.m.get('src:n').metadata.fetchedAt, a: env.FEEDS.m.get('src:a').metadata.fetchedAt };
+  await age(env, 3 * 3600e3);
+  await run(env);
+  assert.equal(env.FEEDS.m.get('src:n').metadata.fetchedAt, t0.n - 3 * 3600e3, 'News not checked after 3 h');
+  assert.ok(env.FEEDS.m.get('src:a').metadata.fetchedAt > t0.a - 3 * 3600e3, 'the other source was');
+  await age(env, 4 * 3600e3);
+  await run(env);
+  assert.ok(env.FEEDS.m.get('src:n').metadata.fetchedAt > t0.n - 7 * 3600e3, 'News checked after 7 h');
+  globalThis.fetch = saved;
+});

@@ -78,8 +78,9 @@ horizontal overflow and stray "null"/"undefined"/"NaN" text.
   That's why each 5-minute cron run refreshes only sources that are due within
   a 300 KB parse budget, and `/feed` stitches stored text instead of parsing it.
   A source is due 2 h after a save that had news; each save with nothing new
-  doubles its wait, up to 12 h (~250 writes a day, not 600; `/health` shows
-  `writesPerDay`). The app never asks the worker to refresh unless its schedule
+  doubles its wait, up to 12 h; a topic or source can set a longer minimum
+  (`"every": 6` hours on News, which only feeds the daily brief). About 200
+  writes a day for ~60 sources, not 600+; `/health` shows `writesPerDay`. The app never asks the worker to refresh unless its schedule
   has stopped, and `/refresh` writes nothing of its own. Keep it that way: the
   owner got Cloudflare's 50% warning when it was ~600 a day plus app refreshes.
   Every run also does one KV list (1,000 a day allowed), so don't schedule it

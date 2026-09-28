@@ -1,6 +1,6 @@
 // bonsai-feeds — Cloudflare Worker
 // Keeps one small KV entry per source. Every 5 minutes (cron) it refreshes the sources that are
-// due (older than 2 h), a few at a time within a byte budget so each run stays inside the free
+// due (see MAX_EVERY below), a few at a time within a byte budget so each run stays inside the free
 // plan's CPU limit (a large feed takes a few ms to parse).
 // GET /feed stitches the stored entries together as text, without re-parsing them.
 // Holds no personal keys: it only reads public feeds.
@@ -18,8 +18,9 @@ const RUN_MAX = 6;                   // and at most this many sources per run
 const LEN_BYTES = 2_000_000;
 const BROWSER_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 // KV writes (the free plan allows 1,000 a day) come from saving sources. A source is checked every
-// 2 h while it has news; each check that finds nothing new doubles its wait, up to 12 h. News sites
-// stay at 2 h, quiet channels settle at 12 h: about 250 writes a day for ~50 sources, not 600.
+// 2 h while it has news; each check that finds nothing new doubles its wait, up to 12 h. A topic or
+// source in sources.json can ask for a longer minimum ("every": hours): News only feeds the daily
+// brief, so it's checked every 6 h. About 200 writes a day for ~60 sources, not 600+.
 const MAX_EVERY = 12 * 3600_000;
 // Defaults, so the worker runs with only the FEEDS binding set. Override in the worker's variables.
 const SOURCES_URL = 'https://atonioguy.github.io/bonsai/sources.json';
@@ -79,9 +80,9 @@ export default {
         return json({
           ok: true, name: 'bonsai-feeds', sources: sources.length, loaded: loaded.length,
           newest: loaded.length ? new Date(Math.max(...loaded)).toISOString() : null,
-          overdue: m.filter((x) => Date.now() - (x.fetchedAt || 0) >= everyOf(x) + 30 * 60_000).length,
+          overdue: m.filter((x, i) => Date.now() - (x.fetchedAt || 0) >= everyOf(x, sources[i]) + 30 * 60_000).length,
           failing: m.filter((x) => x.ok === false).length,
-          writesPerDay: Math.round(m.reduce((n, x) => n + 86_400_000 / everyOf(x), 0)), // about, at the current waits
+          writesPerDay: Math.round(m.reduce((n, x, i) => n + 86_400_000 / everyOf(x, sources[i]), 0)), // about, at the current waits
         }, 200, cors);
       }
       return json({ error: 'not found' }, 404, cors);
@@ -99,7 +100,9 @@ async function loadSources(env) {
   const res = await fetch(env.SOURCES_URL || SOURCES_URL, { cf: { cacheTtl: 300 } });
   if (!res.ok) throw new Error('sources.json: HTTP ' + res.status);
   const cfg = await res.json();
-  return (cfg.sources || []).filter((s) => s.feed);
+  const topicEvery = new Map((cfg.topics || []).map((t) => [t.id, Number(t.every) || 0]));
+  return (cfg.sources || []).filter((s) => s.feed)
+    .map((s) => ({ ...s, minEvery: (Number(s.every) || topicEvery.get(s.topic) || 0) * 3600_000 }));
 }
 
 // The stored entries stitched together as text (no JSON.parse of the big item lists).
@@ -120,7 +123,8 @@ async function storedMeta(env) {
   return new Map(listed.keys.map((k) => [k.name.slice(4), k.metadata || {}]));
 }
 
-const everyOf = (m) => Math.min(MAX_EVERY, Math.max(MAX_AGE, (m && m.every) || MAX_AGE));
+// A source's wait before its next check: its adaptive wait (2–12 h), never under its own minimum.
+const everyOf = (m, s) => Math.max((s && s.minEvery) || 0, Math.min(MAX_EVERY, Math.max(MAX_AGE, (m && m.every) || MAX_AGE)));
 
 // Refresh every source that's due (never fetched, or its wait is over), stalest first, until the
 // run's byte budget is used. A new install fills in minutes; after that most runs do one or none.
@@ -129,7 +133,7 @@ async function refreshDue(env, sources, { meta = null } = {}) {
   meta = meta || await storedMeta(env);
   const at = (x) => (meta.get(x.id) || {}).fetchedAt || 0;
   const now = Date.now();
-  const due = sources.filter((x) => now - at(x) >= everyOf(meta.get(x.id))).sort((a, b) => at(a) - at(b));
+  const due = sources.filter((x) => now - at(x) >= everyOf(meta.get(x.id), x)).sort((a, b) => at(a) - at(b));
   const done = [];
   let bytes = 0;
   for (const x of due.slice(0, RUN_MAX)) {
@@ -210,7 +214,7 @@ export function lengthIn(text) {
 // wait; something new brings it back to every 2 h. A failing source waits longer too.
 async function refreshOne(env, s, old = {}) {
   const key = 'src:' + s.id;
-  const longer = Math.min(MAX_EVERY, everyOf(old) * 2);
+  const longer = Math.min(MAX_EVERY, everyOf(old) * 2); // the adaptive part; a source's minimum applies on top
   let got;
   try {
     got = await fetchOne(s, env);

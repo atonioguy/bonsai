@@ -260,6 +260,10 @@ takeaways.
     The Lancet Psychiatry, JAMA Psychiatry), Psychiatric Times, and YouTube
     channels with many experts instead of one host (Osmosis, Big Think, The
     Royal Institution, History Hit, Mayo Clinic).
+    v0.10.1: News is checked every 6 h at most (it only feeds the daily
+    brief), and the "feed server is behind" warning now means several
+    sources are over an hour past their next check, so a quiet night doesn't
+    set it off.
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT

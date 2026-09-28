@@ -381,10 +381,13 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
     const el = [...document.querySelectorAll('.feed > [data-key]')].find((e) => e.getBoundingClientRect().bottom > edge + 1);
     return el.dataset.key;
   });
+  // Tap a topic without the test runner first scrolling the page to it (the row may have slid away
+  // while scrolling down; that scroll would move the place being tested).
+  const tapTab = (id) => page.evaluate((t) => document.querySelector(`.tab[data-topic="${t}"]`).click(), id);
   await page.evaluate(() => window.scrollTo(0, 1400));
   await page.waitForTimeout(400);
   const allPlace = await placeOf();
-  await page.click('.tab[data-topic="mind"]');
+  await tapTab('mind');
   check((await page.evaluate(() => scrollY)) < 5, 'a topic seen for the first time starts at the top');
   await page.click('.entry[data-id="gen2"]', { button: 'right' });
   await page.click('dialog.peek button:has-text("Mark as read")');
@@ -392,10 +395,10 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.evaluate(() => window.scrollTo(0, 700));
   await page.waitForTimeout(400);
   const mindPlace = await placeOf();
-  await page.click('.tab[data-topic="all"]');
+  await tapTab('all');
   check((await placeOf()) === allPlace, `All keeps its place (${allPlace})`);
   check(await page.$('.entry.is-read[data-id="gen2"]'), 'read in Mind shows as read in All');
-  await page.click('.tab[data-topic="mind"]');
+  await tapTab('mind');
   check((await placeOf()) === mindPlace, `Mind keeps its own place (${mindPlace})`);
   await page.click('.entry[data-id="gen2"]', { button: 'right' });
   await page.click('dialog.peek button:has-text("Mark as unread")');
@@ -403,7 +406,7 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.evaluate(() => window.scrollTo(0, 600));
   await page.waitForTimeout(400);
   const mindLeft = await placeOf();
-  await page.click('.tab[data-topic="all"]');
+  await tapTab('all');
   check(await page.$('.entry[data-id="gen2"]:not(.is-read)'), 'unread again in All too');
   await page.evaluate(() => window.scrollTo(0, 0));
 
@@ -567,9 +570,9 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await page.waitForFunction((w) => document.querySelector('.entry-title')?.textContent === 'Pulled sample ' + w, w);
   check(await page.$('.earlier:has-text("Earlier")'), 'posts already seen go below "Earlier"');
   check((await page.$$eval('.feed .entry .entry-title', (t) => t.map((x) => x.textContent)))[1] === 'Late arrival ' + w, 'an old post that just arrived is near the top');
-  await page.click('.tab[data-topic="mind"]');
+  await tapTab('mind');
   check((await placeOf()) === mindLeft, 'a pull on All leaves Mind’s place alone');
-  await page.click('.tab[data-topic="all"]');
+  await tapTab('all');
   await page.waitForTimeout(500);
   await shot('05c-pulled');
 
