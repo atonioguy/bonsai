@@ -387,12 +387,22 @@ export function pickBrief(items, { topic = 'news', positive = new Set(), now = D
 }
 
 // ---------- feed server health (from /feed status) ----------
-// Its schedule refreshes whatever is over 2 h old, so nothing newer than ~20 min while sources are
-// still missing means the schedule isn't running.
+// Its schedule refreshes whatever is due, so nothing newer than ~20 min while sources are still
+// missing means the schedule isn't running. Once loaded, news sources are saved every 2 h, so
+// nothing saved for 3 h (as of when the feed was fetched) means the server can't save: its schedule
+// stopped, or Cloudflare's free daily limit is used up.
+export const QUIET_AFTER = 3 * 3600_000;
 export function serverHealth(status = [], expected = 0, now = Date.now()) {
   const times = status.map((x) => x.fetchedAt || 0).filter(Boolean);
   const newest = times.length ? Math.max(...times) : 0;
   const loaded = status.length;
   const stalled = loaded < expected && (!newest || now - newest > 20 * 60_000);
-  return { loaded, expected, newest, stalled };
+  const quiet = !stalled && Boolean(newest) && now - newest > QUIET_AFTER;
+  return { loaded, expected, newest, stalled, quiet };
+}
+
+// Cloudflare's daily limits reset at midnight UTC.
+export function limitResetAt(now = Date.now()) {
+  const d = new Date(now);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
 }

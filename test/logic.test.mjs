@@ -246,3 +246,14 @@ test('retopic: topics follow the current sources.json', () => {
   const same = { id: 'd', sourceId: 'pm', topic: 'mind' };
   assert.equal(retopic([same], sources)[0], same, 'unchanged posts are left as they are');
 });
+
+import { limitResetAt } from '../js/logic.js';
+
+test('serverHealth: quiet when nothing was saved for 3 h (limit used up or schedule stopped)', () => {
+  const now = T0;
+  const st = (hAgo) => [{ id: 'a', fetchedAt: now - hAgo * 3600e3 }, { id: 'b', fetchedAt: now - 5 * 3600e3 }];
+  assert.equal(serverHealth(st(1), 2, now).quiet, false);
+  assert.equal(serverHealth(st(4), 2, now).quiet, true);
+  assert.equal(serverHealth(st(4), 5, now).quiet, false, 'sources still missing: that is "stalled", not "quiet"');
+  assert.equal(new Date(limitResetAt(Date.UTC(2026, 8, 27, 19, 43))).toISOString(), '2026-09-28T00:00:00.000Z');
+});

@@ -1,7 +1,7 @@
 import * as db from '../db.js';
 import {
   mixFeed, composeFeed, dueThrowbacks, afterShown, relTime, normalizeFeed, mergeDuplicates, retopic, SESSION_CHOICES,
-  dueListed, afterListShown, newCounts, splitNew, pickBrief, dayKey, BRIEF_SIZE, serverHealth, topicsOf, isMuted, seenOf,
+  dueListed, afterListShown, newCounts, splitNew, pickBrief, dayKey, BRIEF_SIZE, serverHealth, limitResetAt, topicsOf, isMuted, seenOf,
 } from '../logic.js';
 import { h, enso, icon, toast } from '../ui.js';
 import { currentBook, percent } from '../books.js';
@@ -308,13 +308,17 @@ export async function render(main, app) {
         h('p', { class: 'meta', text: 'No articles' + name + ' yet.' }),
         h('button', { type: 'button', class: 'btn btn-secondary', disabled: loading, onclick: () => refreshTop() }, icon('refresh', 18), 'Refresh'));
     }
-    // While the feed server is still doing its first pass, say how far along it is.
-    const health = serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length);
-    const filling = health.expected && health.loaded < health.expected
-      ? h('p', { class: 'meta' + (health.stalled ? ' warn' : '') }, health.stalled
-        ? `${health.loaded} of ${health.expected} sources loaded. The feed server’s schedule doesn’t seem to be running, so Bonsai is loading them while the app is open. To fix it, see Library → Sources.`
-        : `${health.loaded} of ${health.expected} sources loaded. The rest are on their way.`)
-      : null;
+    // While the feed server is still doing its first pass, say how far along it is; if it has
+    // stopped saving new posts, say so instead of looking up to date.
+    const health = serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length, cache.fetchedAt || Date.now());
+    const resets = new Date(limitResetAt()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const filling = health.quiet
+      ? h('p', { class: 'meta warn' }, `The feed server hasn’t saved anything new since ${relTime(health.newest)}. Cloudflare’s free daily limit may be used up (it resets at ${resets}), or its schedule has stopped (see Library).`)
+      : health.expected && health.loaded < health.expected
+        ? h('p', { class: 'meta' + (health.stalled ? ' warn' : '') }, health.stalled
+          ? `${health.loaded} of ${health.expected} sources loaded. The feed server’s schedule doesn’t seem to be running, so Bonsai is loading them while the app is open. To fix it, see Library → Sources.`
+          : `${health.loaded} of ${health.expected} sources loaded. The rest are on their way.`)
+        : null;
     const n = loading ? 0 : waiting();
     const status = loading ? 'Updating…'
       : note ? note
@@ -342,7 +346,11 @@ export async function render(main, app) {
     if (list.querySelector('[data-key]')) paintEnd(); else draw();
     try {
       const base = s.feedUrl.replace(/\/+$/, '');
-      if (force) await fetch(base + '/refresh', { method: 'POST' }).catch(() => {});
+      // The server refreshes on its own schedule; only nudge it when that schedule isn't running
+      // (every nudge costs Cloudflare's daily limits).
+      if (force && cache && serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length).stalled) {
+        await fetch(base + '/refresh', { method: 'POST' }).catch(() => {});
+      }
       const r = await fetch(base + '/feed', { cache: 'no-store' });
       if (!r.ok) throw new Error('The feed server answered ' + r.status + '.');
       cache = { ...normalizeFeed(await r.json()), fetchedAt: Date.now() };
@@ -428,18 +436,17 @@ export async function render(main, app) {
   window.addEventListener('scroll', onScroll, { passive: true });
   load(false);
 
-  // While sources are still missing, nudge the feed server about once a minute as long as the app
-  // is open (it refreshes whatever is due each time). What arrives waits for your next refresh.
+  // Only while the server's schedule isn't running (sources missing, nothing saved lately): nudge it
+  // every 5 minutes as long as the app is open. What arrives waits for your next refresh.
   const nudge = setInterval(async () => {
     if (!s.feedUrl || loading || document.visibilityState !== 'visible' || !cache) return;
-    const health = serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length);
-    if (health.loaded >= health.expected) return;
+    if (!serverHealth(cache.status, app.config.sources.filter((x) => x.feed).length).stalled) return;
     try {
       const r = await fetch(s.feedUrl.replace(/\/+$/, '') + '/refresh', { method: 'POST' });
       const done = r.ok ? await r.json() : null;
       if (done && Array.isArray(done.refreshed) && done.refreshed.length) load(true);
-    } catch { /* offline: try again next minute */ }
-  }, 65_000);
+    } catch { /* offline: try again later */ }
+  }, 5 * 60_000);
 
   return () => {
     clearInterval(nudge);

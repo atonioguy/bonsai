@@ -113,8 +113,13 @@ render.again = (main, app) => { main.replaceChildren(); return render(main, app)
 // One line about the feed server; if its schedule has stopped, say how to fix it.
 function serverLine(feed, app) {
   if (!feed) return null;
-  const health = serverHealth(feed.status, app.config.sources.filter((x) => x.feed).length);
+  const health = serverHealth(feed.status, app.config.sources.filter((x) => x.feed).length, feed.fetchedAt || Date.now());
   const last = health.newest ? 'last updated a source ' + relTime(health.newest) : 'hasn’t updated yet';
+  if (health.quiet) {
+    return h('div', { class: 'fail-block', style: 'margin-bottom: var(--s-5)', role: 'status' },
+      h('p', { class: 'label warn', text: `Feed server: ${health.loaded} of ${health.expected} sources loaded, ${last}.` }),
+      h('p', { class: 'hint', text: 'It hasn’t saved anything new for hours. Either Cloudflare’s free daily limit is used up (it resets at midnight UTC; check bonsai-feeds → Metrics in Cloudflare), or its schedule stopped: open bonsai-feeds → Settings → Trigger events and check there’s a Cron Trigger set to */5 * * * *.' }));
+  }
   if (!health.stalled) {
     return h('p', { class: 'meta', style: 'margin-bottom: var(--s-4)', text: `Feed server: ${health.loaded} of ${health.expected} sources loaded, ${last}.` });
   }

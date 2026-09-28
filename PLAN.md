@@ -241,6 +241,12 @@ takeaways.
     LibKey field left Settings at the owner's request (a saved ID still
     works).
 
+19. ✅ v0.9.1: fewer Cloudflare KV writes (the owner got the 50% daily
+    warning and then saw nothing new): a source with nothing new waits
+    longer between checks (2 → 4 → 8 → 12 h), pulls and Refresh only read,
+    `/refresh` stopped writing a timestamp, and the feed says when the server
+    hasn't saved anything for 3 h (limit used up or schedule stopped).
+
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT
 Health & Wellness, Equality Arlington, UTA LGBTQ+ Program on events.uta.edu,

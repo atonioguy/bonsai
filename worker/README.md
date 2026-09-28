@@ -5,12 +5,14 @@ them to the app. It runs on its own, separate from Side Quest's
 `aquamarine-data` worker, and holds no keys or passwords. It only reads public
 feeds.
 
-**How it works:** every 5 minutes it refreshes every source that's due (never
-loaded, or over 2 hours old), a few at a time within a size budget so each run
-stays inside the free plan's CPU limit. A new install fills in within about 45
-minutes; after that most runs refresh one source or none. That keeps KV writes
-around 650 a day and lists around 290 (the free plan allows 1,000 of each; a
-2-minute schedule would use ~720 lists, too close). `GET /feed` returns everything stored.
+**How it works:** every 5 minutes it refreshes every source that's due, a few
+at a time within a size budget so each run stays inside the free plan's CPU
+limit. A source is due 2 hours after a check that found something new; each
+check that finds nothing new doubles its wait (4, 8, then 12 hours). News sites
+stay at 2 hours, quiet channels settle at 12. That keeps KV writes around 250 a
+day and lists around 290 (the free plan allows 1,000 of each). The app only
+reads; it asks the worker to refresh only if the schedule has stopped.
+`GET /feed` returns everything stored.
 
 **Video lengths:** YouTube's feeds don't include them. The app asks
 `GET /length?v=VIDEO_ID` for the videos it shows and keeps the answers on the
@@ -19,7 +21,8 @@ as soon as the length shows up), else asks YouTube's player API. To see why a
 length is missing, open `…workers.dev/length?v=VIDEO_ID&debug=1`.
 
 **Is it running?** Open `…workers.dev/health`. It shows how many sources are
-loaded, when the newest refresh happened, and how many are overdue. If `newest`
+loaded, when the newest refresh happened, how many are overdue or failing, and
+about how many KV writes a day the current waits add up to (`writesPerDay`). If `newest`
 is hours old, the Cron Trigger (step 5) isn't set. The app's Library screen
 shows the same warning.
 

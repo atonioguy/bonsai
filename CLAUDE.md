@@ -75,10 +75,15 @@ horizontal overflow and stray "null"/"undefined"/"NaN" text.
   `worker/bonsai-feeds.js` in the Cloudflare dashboard (Edit code → Deploy). That's
   how they deploy; they don't use a terminal. `sources.json` edits need no redeploy.
 - The free Workers plan allows ~10 ms of CPU per run and 1,000 KV writes a day.
-  That's why each 5-minute cron run refreshes only sources that are due (over 2 h
-  old) within a 300 KB parse budget, and `/feed` stitches stored text instead of
-  parsing it. Keep it that way. Every run also does one KV list (1,000 a day
-  allowed), so don't schedule it more often than every 5 minutes.
+  That's why each 5-minute cron run refreshes only sources that are due within
+  a 300 KB parse budget, and `/feed` stitches stored text instead of parsing it.
+  A source is due 2 h after a save that had news; each save with nothing new
+  doubles its wait, up to 12 h (~250 writes a day, not 600; `/health` shows
+  `writesPerDay`). The app never asks the worker to refresh unless its schedule
+  has stopped, and `/refresh` writes nothing of its own. Keep it that way: the
+  owner got Cloudflare's 50% warning when it was ~600 a day plus app refreshes.
+  Every run also does one KV list (1,000 a day allowed), so don't schedule it
+  more often than every 5 minutes.
 
 ## Related repo
 

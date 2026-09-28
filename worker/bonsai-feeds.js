@@ -220,7 +220,10 @@ const RUN_MAX = 6;                   // and at most this many sources per run
 // and keeps the answers on the phone, so this costs no KV writes. Reading stops once the length shows.
 const LEN_BYTES = 2_000_000;
 const BROWSER_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
-// Steady state is ~50 sources / 2 h ≈ 600 KV writes a day, under the free plan's 1,000.
+// KV writes (the free plan allows 1,000 a day) come from saving sources. A source is checked every
+// 2 h while it has news; each check that finds nothing new doubles its wait, up to 12 h. News sites
+// stay at 2 h, quiet channels settle at 12 h: about 250 writes a day for ~50 sources, not 600.
+const MAX_EVERY = 12 * 3600_000;
 // Defaults, so the worker runs with only the FEEDS binding set. Override in the worker's variables.
 const SOURCES_URL = 'https://atonioguy.github.io/bonsai/sources.json';
 const ALLOW_ORIGIN = 'https://atonioguy.github.io';
@@ -240,17 +243,19 @@ export default {
       if (url.pathname === '/feed' && req.method === 'GET') {
         const sources = await loadSources(env);
         let body = await feedBody(env, sources);
-        if (!body) { // first visit ever: fetch one source now so the feed isn't empty
-          await refreshDue(env, sources, { force: true });
+        if (!body) { // first visit ever: fetch what fits now so the feed isn't empty
+          await refreshDue(env, sources);
           body = (await feedBody(env, sources)) || '{"sources":[]}';
         }
         return new Response(body, { headers: { ...cors, 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
       }
+      // Refresh what's due now (for when the schedule isn't running). Writes nothing of its own:
+      // skipped if anything was saved in the last minute.
       if (url.pathname === '/refresh' && req.method === 'POST') {
-        const last = Number((await env.FEEDS.get('lastRefresh')) || 0);
-        if (Date.now() - last < REFRESH_GAP) return json({ ok: true, skipped: true }, 200, cors);
-        await env.FEEDS.put('lastRefresh', String(Date.now()));
-        const done = await refreshDue(env, await loadSources(env), { force: true });
+        const meta = await storedMeta(env);
+        const newest = Math.max(0, ...[...meta.values()].map((m) => m.fetchedAt || 0));
+        if (Date.now() - newest < REFRESH_GAP) return json({ ok: true, skipped: true }, 200, cors);
+        const done = await refreshDue(env, await loadSources(env), { meta });
         return json({ ok: true, refreshed: done }, 200, cors);
       }
       // Relay for Europe PMC (full text of open-access papers), in case the browser can't reach it
@@ -271,13 +276,15 @@ export default {
       // How the feed is doing: sources loaded, and when the newest/oldest refresh happened.
       if (url.pathname === '/' || url.pathname === '/health') {
         const sources = await loadSources(env);
-        const at = await refreshTimes(env);
-        const times = sources.map((x) => at.get(x.id) || 0);
-        const loaded = times.filter(Boolean);
+        const meta = await storedMeta(env);
+        const m = sources.map((x) => meta.get(x.id) || {});
+        const loaded = m.map((x) => x.fetchedAt || 0).filter(Boolean);
         return json({
           ok: true, name: 'bonsai-feeds', sources: sources.length, loaded: loaded.length,
           newest: loaded.length ? new Date(Math.max(...loaded)).toISOString() : null,
-          overdue: times.filter((t) => Date.now() - t >= MAX_AGE).length,
+          overdue: m.filter((x) => Date.now() - (x.fetchedAt || 0) >= everyOf(x) + 30 * 60_000).length,
+          failing: m.filter((x) => x.ok === false).length,
+          writesPerDay: Math.round(m.reduce((n, x) => n + 86_400_000 / everyOf(x), 0)), // about, at the current waits
         }, 200, cors);
       }
       return json({ error: 'not found' }, 404, cors);
@@ -310,25 +317,30 @@ async function feedBody(env, sources) {
   return '{"updatedAt":' + JSON.stringify(new Date().toISOString()) + ',"sources":[' + parts.join(',') + ']}';
 }
 
-async function refreshTimes(env) {
+// Each source's saved state (fetchedAt, ok, every, top…) from one KV list.
+async function storedMeta(env) {
   const listed = await env.FEEDS.list({ prefix: 'src:' });
-  return new Map(listed.keys.map((k) => [k.name.slice(4), (k.metadata && k.metadata.fetchedAt) || 0]));
+  return new Map(listed.keys.map((k) => [k.name.slice(4), k.metadata || {}]));
 }
 
-// Refresh every source that's due (never fetched, or older than MAX_AGE), stalest first, until the
+const everyOf = (m) => Math.min(MAX_EVERY, Math.max(MAX_AGE, (m && m.every) || MAX_AGE));
+
+// Refresh every source that's due (never fetched, or its wait is over), stalest first, until the
 // run's byte budget is used. A new install fills in minutes; after that most runs do one or none.
-// force: if nothing is due, refresh the stalest one anyway (manual refresh, first visit).
-async function refreshDue(env, sources, { force = false } = {}) {
+async function refreshDue(env, sources, { meta = null } = {}) {
   if (!sources.length) return [];
-  const at = await refreshTimes(env);
+  meta = meta || await storedMeta(env);
+  const at = (x) => (meta.get(x.id) || {}).fetchedAt || 0;
   const now = Date.now();
-  const order = sources.slice().sort((a, b) => (at.get(a.id) || 0) - (at.get(b.id) || 0));
-  let due = order.filter((x) => now - (at.get(x.id) || 0) >= MAX_AGE);
-  if (!due.length && force) due = order.slice(0, 1);
+  const due = sources.filter((x) => now - at(x) >= everyOf(meta.get(x.id))).sort((a, b) => at(a) - at(b));
   const done = [];
   let bytes = 0;
   for (const x of due.slice(0, RUN_MAX)) {
-    bytes += await refreshOne(env, x);
+    try {
+      bytes += await refreshOne(env, x, meta.get(x.id));
+    } catch {
+      break; // most likely the daily KV limit: stop here, the next run tries again
+    }
     done.push(x.id);
     if (bytes >= RUN_BYTES) break;
   }
@@ -397,24 +409,30 @@ function lengthIn(text) {
   return ms ? Math.round(Number(ms[1]) / 1000) : 0;
 }
 
-async function refreshOne(env, s) {
+// `old` is the source's saved metadata. Nothing new since last time (same newest item) doubles its
+// wait; something new brings it back to every 2 h. A failing source waits longer too.
+async function refreshOne(env, s, old = {}) {
   const key = 'src:' + s.id;
+  const longer = Math.min(MAX_EVERY, everyOf(old) * 2);
+  let got;
   try {
-    const { items: all, bytes } = await fetchOne(s, env);
-    const open = s.hideLocked ? all.filter((it) => !isLocked(it)) : all;
-    const kept = open.slice(0, PER_SOURCE);
-    await env.FEEDS.put(key, JSON.stringify(kept), {
-      metadata: { fetchedAt: Date.now(), ok: true, count: kept.length, hidden: all.length - open.length },
-    });
-    return bytes;
+    got = await fetchOne(s, env);
   } catch (e) {
     // Keep the last good items; just record the failure.
-    const old = await env.FEEDS.getWithMetadata(key);
-    await env.FEEDS.put(key, old.value || '[]', {
-      metadata: { ...(old.metadata || {}), fetchedAt: Date.now(), ok: false, error: String(e && e.message || e).slice(0, 160) },
+    const prev = await env.FEEDS.getWithMetadata(key);
+    await env.FEEDS.put(key, prev.value || '[]', {
+      metadata: { ...(prev.metadata || {}), fetchedAt: Date.now(), ok: false, every: longer, error: String(e && e.message || e).slice(0, 160) },
     });
     return 0;
   }
+  const open = s.hideLocked ? got.items.filter((it) => !isLocked(it)) : got.items;
+  const kept = open.slice(0, PER_SOURCE);
+  const top = kept.length ? kept[0].id : '';
+  const same = old.ok === true && old.top === top;
+  await env.FEEDS.put(key, JSON.stringify(kept), {
+    metadata: { fetchedAt: Date.now(), ok: true, count: kept.length, hidden: got.items.length - open.length, top, every: same ? longer : MAX_AGE },
+  });
+  return got.bytes;
 }
 
 // "youtube:@handle" → that channel's video feed. The channel id is looked up once and kept.

@@ -4,7 +4,7 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.9.0)
+## Live state (v0.9.1)
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
@@ -59,6 +59,10 @@ the "Local (circle back)" / "Next" notes).
 - v0.8.2: Collections → Notes (all your article notes in one place).
 - v0.8.3: tabs remember where you were (`stacks`/`section` in js/app.js);
   Back works within the tab.
+- **Worker re-paste needed (v0.9.1):** fewer KV writes (~250 a day instead of
+  ~600 plus app refreshes). Cloudflare had sent the 50% daily KV warning and
+  the owner saw no new posts after it (likely the 1,000 writes a day used up).
+  `/health` now shows `writesPerDay`, `failing` and `overdue`.
 - v0.9.0: Collections → Add article (js/addarticle.js): research links looked
   up via Europe PMC, else Crossref; posts get `sourceId: 'added'` and an id
   from the PMID/DOI. The LibKey field was removed from Settings (the owner

@@ -202,3 +202,40 @@ test('/length: from the watch page, else the player API; ?debug=1 says what each
   assert.equal(env.FEEDS.m.size, 0, 'no KV writes');
   globalThis.fetch = saved;
 });
+
+test('a source with nothing new waits longer (2 h → 4 h → …12 h); news brings it back to 2 h', async () => {
+  const env = { FEEDS: memKV() };
+  await run(env);
+  const every = () => env.FEEDS.m.get('src:a').metadata.every;
+  assert.equal(every(), 2 * 3600e3, 'first save: every 2 h');
+  await age(env);
+  await run(env);
+  assert.equal(every(), 4 * 3600e3, 'same newest post: wait doubles');
+  await age(env); // 3 h later: not due yet at 4 h
+  const before = env.FEEDS.m.get('src:a').metadata.fetchedAt;
+  await run(env);
+  assert.equal(env.FEEDS.m.get('src:a').metadata.fetchedAt, before, 'not refreshed before its wait');
+  for (let i = 0; i < 6; i++) { await age(env, 13 * 3600e3); await run(env); }
+  assert.equal(every(), 12 * 3600e3, 'capped at 12 h');
+  env.FEEDS.m.get('src:a').metadata.top = 'something-older';
+  await age(env, 13 * 3600e3);
+  await run(env);
+  assert.equal(every(), 2 * 3600e3, 'a new post: back to every 2 h');
+  const h = await (await worker.fetch(new Request('https://w.test/health'), env, ctx)).json();
+  assert.ok(h.writesPerDay > 0 && h.writesPerDay <= 36, 'health estimates writes a day: ' + h.writesPerDay);
+});
+
+test('/refresh writes nothing of its own, and a failed save stops the run quietly', async () => {
+  const env = { FEEDS: memKV() };
+  await run(env);
+  await age(env);
+  let writes = 0;
+  const put = env.FEEDS.put;
+  env.FEEDS.put = async (...a) => { writes++; return put(...a); };
+  const r = await (await worker.fetch(new Request('https://w.test/refresh', { method: 'POST' }), env, ctx)).json();
+  assert.equal(writes, r.refreshed.length, 'one write per refreshed source, nothing else');
+  assert.equal(await env.FEEDS.get('lastRefresh'), null);
+  await age(env, 24 * 3600e3);
+  env.FEEDS.put = async () => { throw new Error('KV put() limit exceeded for the day.'); };
+  await run(env); // must not throw
+});
