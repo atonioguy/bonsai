@@ -264,6 +264,11 @@ takeaways.
     brief), and the "feed server is behind" warning now means several
     sources are over an hour past their next check, so a quiet night doesn't
     set it off.
+    v0.10.2: a "3 new posts" button (like Twitter's) floats under the topics
+    when a background check finds posts that arrived since the feed's order
+    was made; tapping it does what pulling down does. The app checks every
+    10 minutes while the feed is open and on coming back to the app (reads
+    only, no KV writes).
 
 Local (circle back): City of Arlington and KERA need their feed links; LGBTQ
 calendars found but none with a confirmed feed yet (HELP Center for LGBT

@@ -243,8 +243,11 @@ decide, or act. Otherwise cut it.
   - Floating layers: Save quote bar, toasts, the Aa popover, bottom sheets,
     the Recently opened drawer, the long-press preview + action menu, the
     movable jump button (round is fine: it's a genuinely round control), the
-    pull-to-refresh arrow (round, only while pulling), and the Short player
-    over a Short in the feed with its round sound button.
+    pull-to-refresh arrow (round, only while pulling), the Short player
+    over a Short in the feed with its round sound button, and the "3 new
+    posts" button (`--accent`, round ends) that floats under the topics when a
+    background check finds posts that arrived since the feed's order was made;
+    tapping it does what pulling down does.
   - The feed's topic row sticks under the top bar (a `--line` hairline once
     scrolled). Like Safari's bar, it slides away while you scroll down and
     comes back as soon as you scroll up.

@@ -68,6 +68,7 @@ const YT_MOCK = `window.YT = { Player: class {
   mute() { this.muted = true; } unMute() { this.muted = false; } isMuted() { return this.muted; }
 } }; window.onYouTubeIframeAPIReady();`;
 const FEED = { updatedAt: iso(1), items, status: [{ id: 'sample-journal', ok: false, error: 'HTTP 404' }] };
+const FIXTURE_ITEMS = items.length; // each screen width starts from the same posts (runs add some)
 
 // A tiny EPUB built in memory (deflate, like real EPUBs).
 function crc32(buf) { return zlib.crc32 ? zlib.crc32(buf) : 0; }
@@ -132,6 +133,7 @@ const browser = await chromium.launch();
 let focusPosts = 0;
 
 for (const [w, hgt] of [[375, 812], [1280, 860]]) {
+  FEED.items.length = FIXTURE_ITEMS;
   const ctx = await browser.newContext({ viewport: { width: w, height: hgt }, deviceScaleFactor: 2, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
   const errors = [];
@@ -575,6 +577,20 @@ for (const [w, hgt] of [[375, 812], [1280, 860]]) {
   await tapTab('all');
   await page.waitForTimeout(500);
   await shot('05c-pulled');
+
+  // "N new posts": a background check (here: coming back to a feed last fetched an hour ago) finds a
+  // post that arrived since the order was made; the button brings it in at the top
+  FEED.items.push({ ...FEED.items.find((x) => x.id === 'gen8'), id: `pill${w}`, sourceId: 'gen-0', topic: 'tao', title: 'Arrived while away ' + w, url: `https://example.org/pill/${w}`, published: new Date().toISOString() });
+  await page.goto(BASE + '#/bonsai');
+  await page.waitForSelector('svg.bonsai');
+  await page.evaluate(async () => { const db = await import('/js/db.js'); const c = await db.get('kv', 'feed'); c.fetchedAt = Date.now() - 3600e3; await db.put('kv', 'feed', c); });
+  await page.goto(BASE + '#/');
+  await page.waitForSelector('.new-pill:not([hidden])');
+  check((await page.textContent('.new-pill')) === '1 new post', 'the button counts what arrived (' + (await page.textContent('.new-pill')) + ')');
+  await shot('05f-new-posts-button');
+  await page.click('.new-pill');
+  await page.waitForFunction((w) => document.querySelector('.entry-title')?.textContent === 'Arrived while away ' + w, w);
+  check(await page.$('.new-pill[hidden]'), 'the button goes away once they are in');
 
   // reading list item comes back into the feed when due, and leaves only when you say so
   await page.evaluate(async () => {

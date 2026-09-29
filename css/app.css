@@ -139,6 +139,19 @@ body[data-route="read"] main { max-width: none; padding: 0; }
 }
 .topic-tabs.is-stuck { border-bottom-color: var(--line); }
 .topic-tabs.is-away { transform: translateY(-100%); }
+/* "3 new posts": floats just under the topics (or the top bar when they've slid away). */
+.new-pill {
+  position: fixed; left: 50%; z-index: 4; transform: translateX(-50%);
+  top: calc(var(--bar-h) + env(safe-area-inset-top) + var(--control) + var(--s-2));
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  min-height: var(--control); padding: 0 var(--s-4);
+  border: 0; border-radius: var(--r-full); background: var(--accent); color: var(--accent-ink);
+  font-weight: 700; white-space: nowrap; box-shadow: var(--shadow-1); cursor: pointer;
+  transition: top var(--dur-2) var(--ease);
+}
+.topic-tabs.is-away ~ .new-pill { top: calc(var(--bar-h) + env(safe-area-inset-top) + var(--s-2)); }
+@media (prefers-reduced-motion: no-preference) { .new-pill:not([hidden]) { animation: pill-in var(--dur-2) var(--ease); } }
+@keyframes pill-in { from { opacity: 0; transform: translate(-50%, calc(-1 * var(--s-2))); } }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
   flex-shrink: 0;

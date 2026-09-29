@@ -4,13 +4,18 @@ Where things stand, for the next Claude session. Read this after CLAUDE.md. For
 the full history and the parked ideas, see PLAN.md (build log items 1–14 and
 the "Local (circle back)" / "Next" notes).
 
-## Live state (v0.10.1)
+## Live state (v0.10.2)
+
+- v0.10.2: the "N new posts" button at the top of the feed (counts only posts
+  that arrived after the tab's order was built, `view.builtAt`, so the
+  3-per-source cap doesn't keep it showing). Background checks every 10 min
+  and on returning to the app; `/feed` reads only.
 
 - App: https://atonioguy.github.io/bonsai/, served from `main`.
 - The feed worker `bonsai-feeds` is deployed from the Cloudflare dashboard, and
   its Cron Trigger is running (the owner confirmed sources now load on their
   own). The cron is `*/5 * * * *`. `/health` shows whether it's running.
-- **Worker re-paste needed (v0.10.1):** News checked every 6 h at most
+- Worker v0.10.1 re-pasted by the owner (Sep 29): News checked every 6 h at most
   (`"every"` on a topic/source in sources.json). The owner got a second 50%
   KV email on Sep 28 at 4:26 PM Central, most likely from writes made before
   the v0.9.1 re-paste took full effect (the adaptive waits only lengthen after

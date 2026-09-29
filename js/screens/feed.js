@@ -38,7 +38,10 @@ export async function render(main, app) {
 
   const tabs = h('div', { class: 'tabs topic-tabs', role: 'group', 'aria-label': 'Topics' });
   const list = h('div', { class: 'feed' });
-  main.append(h('h1', { class: 'visually-hidden', text: 'Feed' }), tabs, list);
+  // "3 new posts": shows when a background check finds posts this tab isn't showing yet. Tapping it
+  // does what pulling down does (a new order, newest first, back to the top).
+  const pill = h('button', { type: 'button', class: 'new-pill', hidden: true, onclick: () => { pill.hidden = true; refreshTop(); } });
+  main.append(h('h1', { class: 'visually-hidden', text: 'Feed' }), tabs, pill, list);
 
   const topics = [{ id: 'all', name: 'All' }, { id: '_list', name: 'Reading list' }, ...app.config.topics];
   if (!topics.some((t) => t.id === app.topic)) app.topic = 'all';
@@ -175,7 +178,7 @@ export async function render(main, app) {
       cards.splice(at, 0, { type: 'divider' });
     }
     if ((all || briefTopics.has(topic)) && briefItems.length) cards.unshift({ type: 'brief' });
-    return { keys: cards.map(keyOf), items: Object.fromEntries(entries.map((e) => [e.id, slim(e)])), anchor: null, entries: entries.length };
+    return { keys: cards.map(keyOf), items: Object.fromEntries(entries.map((e) => [e.id, slim(e)])), anchor: null, entries: entries.length, builtAt: Date.now() };
   }
 
   // The saved order back as cards, with today's state (opened, hidden, the current book…).
@@ -224,7 +227,7 @@ export async function render(main, app) {
 
   function draw() {
     watcher.disconnect();
-    if (app.topic === '_list') { drawList(); shorts.scan(); askLengths(); return; }
+    if (app.topic === '_list') { drawList(); paintPill(); shorts.scan(); askLengths(); return; }
     let view = views()[app.topic];
     if (!view || (!view.entries && cache?.items.length)) { // never built, or built before anything arrived
       view = views()[app.topic] = buildView(app.topic);
@@ -234,6 +237,7 @@ export async function render(main, app) {
     list.querySelectorAll('.entry, .throwback, .listed').forEach((el) => watcher.observe(el));
     list.appendChild(endEl());
     paintCounts();
+    paintPill();
     shorts.scan();
     askLengths();
   }
@@ -300,7 +304,18 @@ export async function render(main, app) {
     el.dataset.end = '';
     return el;
   }
-  const paintEnd = () => list.querySelector('[data-end]')?.replaceWith(endEl());
+  const paintEnd = () => { list.querySelector('[data-end]')?.replaceWith(endEl()); paintPill(); };
+  function paintPill() {
+    // Only posts that arrived since this order was made (not the ones a source's cap held back).
+    if (loading) return; // keep what it shows while a check runs
+    const since = views()[app.topic]?.builtAt || 0;
+    const n = app.topic === '_list' ? 0 : notShown().filter((i) => (arrived[i.id] || 0) > since).length;
+    pill.hidden = !n;
+    if (!n) return;
+    const text = n === 1 ? '1 new post' : n + ' new posts';
+    pill.replaceChildren(icon('arrowUp', 18), h('span', { text }));
+    pill.setAttribute('aria-label', 'Show ' + text);
+  }
 
   function endContent(count) {
     if (!s.feedUrl) {
@@ -451,6 +466,12 @@ export async function render(main, app) {
   window.addEventListener('scroll', onScroll, { passive: true });
   load(false);
 
+  // Check for new posts now and then while the feed is open, and on coming back to the app. This
+  // only reads the feed server (no KV writes); what it finds shows as the "new posts" button.
+  const check = () => { if (document.visibilityState === 'visible') load(false); };
+  const checker = setInterval(check, STALE);
+  document.addEventListener('visibilitychange', check);
+
   // Only while the server's schedule isn't running (sources missing, nothing saved lately): nudge it
   // every 5 minutes as long as the app is open. What arrives waits for your next refresh.
   const nudge = setInterval(async () => {
@@ -465,6 +486,8 @@ export async function render(main, app) {
 
   return () => {
     clearInterval(nudge);
+    clearInterval(checker);
+    document.removeEventListener('visibilitychange', check);
     clearTimeout(anchorTimer);
     window.removeEventListener('scroll', onScroll);
     watcher.disconnect();
