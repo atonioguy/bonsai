@@ -22,6 +22,14 @@ the "Local (circle back)" / "Next" notes).
   a source's second check). If a third arrives after this re-paste, ask which
   KV operation it is (Cloudflare → Workers & Pages → KV → Metrics: reads,
   writes or lists) and what `/health` shows for `writesPerDay`.
+- Checked with the owner: `/health` showed v0.10.1 running (`writesPerDay`
+  249, 62 of 62 loaded, 0 overdue, 5 failing). The second 50% email had reset
+  time 2026-09-29 00:00 UTC, so it covered the day before the fixes settled.
+  KV Metrics for that day: reads ~900 (of 100k), lists ~300 (the cron), writes
+  ~450–500. If an email for a later day arrives, get the Write count
+  (Metrics → Request count); the next step would be a 3 h base wait and up
+  to 24 h for quiet sources. Still to fix: the 5 failing sources (ask for a
+  Library → Sources screenshot; likely among the 11 unverified v0.10.0 links).
 - The deployed worker otherwise matches the repo (video lengths via
   `/length`, adaptive waits from v0.9.1).
 
